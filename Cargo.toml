@@ -1,0 +1,20 @@
+[package]
+name = "hashbag"
+version = "0.1.0"
+authors = ["Jon Gjengset <jon@thesquareplanet.com>"]
+edition = "2018"
+license = "MIT OR Apache-2.0"
+
+readme = "README.md"
+description = "An unordered multiset implementation using a hash bag"
+repository = "https://github.com/jonhoo/hashbag.git"
+
+keywords = ["bag","multiset","set"]
+categories = ["data-structures"]
+
+[badges]
+azure-devops = { project = "jonhoo/jonhoo", pipeline = "hashbag", build = "17" }
+codecov = { repository = "jonhoo/hashbag", branch = "master", service = "github" }
+maintenance = { status = "passively-maintained" }
+
+[dependencies]
