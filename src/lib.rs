@@ -634,6 +634,52 @@ where
         }
     }
 
+    /// Removes a value that is equal to the given one, and returns it if it was the last.
+    ///
+    /// If the matching value is not the last, a reference to the remainder is given, along with
+    /// the number of occurrences prior to the removal.
+    ///
+    /// The value may be any borrowed form of the bag's value type, but
+    /// [`Hash`] and [`Eq`] on the borrowed form *must* match those for
+    /// the value type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use hashbag::HashBag;
+    ///
+    /// let mut bag: HashBag<_> = [1, 2, 3, 3].iter().cloned().collect();
+    /// assert_eq!(bag.try_take(&2), Ok(2));
+    /// assert_eq!(bag.try_take(&3), Err(Some((&3, 2))));
+    /// assert_eq!(bag.try_take(&3), Ok(3));
+    /// assert_eq!(bag.try_take(&4), Err(None));
+    /// ```
+    #[inline]
+    pub fn try_take<Q: ?Sized>(&mut self, value: &Q) -> Result<T, Option<(&T, usize)>>
+    where
+        T: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        // TODO: it should be possible to make this more efficient
+        match self.items.remove_entry(value) {
+            Some((t, 1)) => {
+                self.count -= 1;
+                Ok(t)
+            }
+            Some((t, n)) => {
+                self.count -= 1;
+                self.items.insert(t, n - 1);
+                Err(Some(
+                    self.items
+                        .get_key_value(value)
+                        .map(|(t, n)| (t, *n + 1))
+                        .unwrap(),
+                ))
+            }
+            None => Err(None),
+        }
+    }
+
     /// Removes and returns all occurrences of the value, if any, that is equal to the given one.
     ///
     /// The value may be any borrowed form of the bag's value type, but
