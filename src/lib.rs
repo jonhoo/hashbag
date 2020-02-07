@@ -10,7 +10,12 @@
 //! For usage examples, see the primary type [`HashBag`].
 //!
 //!   [`std::unordered_multiset`]: http://www.cplusplus.com/reference/unordered_set/unordered_multiset/
-#![deny(missing_docs, unreachable_pub, intra_doc_link_resolution_failure)]
+#![deny(
+    missing_docs,
+    missing_debug_implementations,
+    unreachable_pub,
+    intra_doc_link_resolution_failure
+)]
 #![warn(rust_2018_idioms)]
 
 use std::borrow::Borrow;
@@ -205,7 +210,7 @@ impl<T, S> HashBag<T, S> {
     /// ```
     #[inline]
     pub fn iter(&self) -> Iter<'_, T> {
-        Iter::from(self.items.iter())
+        Iter::new(self.items.iter(), self.count)
     }
 
     /// An iterator visiting all distinct elements in arbitrary order.
@@ -875,13 +880,41 @@ impl<T, S> IntoIterator for HashBag<T, S> {
 pub struct Iter<'a, T> {
     iter: std::collections::hash_map::Iter<'a, T, usize>,
     repeat: Option<(&'a T, usize)>,
+    left: usize,
 }
 
-impl<'a, T> From<std::collections::hash_map::Iter<'a, T, usize>> for Iter<'a, T> {
-    fn from(it: std::collections::hash_map::Iter<'a, T, usize>) -> Self {
+impl<'a, T> std::iter::FusedIterator for Iter<'a, T> where
+    std::collections::hash_map::Iter<'a, T, usize>: std::iter::FusedIterator
+{
+}
+
+impl<'a, T> ExactSizeIterator for Iter<'a, T> where
+    std::collections::hash_map::Iter<'a, T, usize>: ExactSizeIterator
+{
+}
+
+impl<'a, T> Clone for Iter<'a, T> {
+    fn clone(&self) -> Self {
+        Iter {
+            iter: self.iter.clone(),
+            repeat: self.repeat.clone(),
+            left: self.left,
+        }
+    }
+}
+
+impl<T: fmt::Debug> fmt::Debug for Iter<'_, T> {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt.debug_set().entries(self.clone()).finish()
+    }
+}
+
+impl<'a, T> Iter<'a, T> {
+    fn new(it: std::collections::hash_map::Iter<'a, T, usize>, n: usize) -> Self {
         Self {
             iter: it,
             repeat: None,
+            left: n,
         }
     }
 }
@@ -894,6 +927,7 @@ impl<'a, T> Iterator for Iter<'a, T> {
                 self.repeat = None;
             } else {
                 *n -= 1;
+                self.left -= 1;
                 return Some(t);
             }
         }
@@ -902,7 +936,12 @@ impl<'a, T> Iterator for Iter<'a, T> {
         if *n > 1 {
             self.repeat = Some((next, *n - 1));
         }
+        self.left -= 1;
         Some(next)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.left, Some(self.left))
     }
 }
 
@@ -912,10 +951,36 @@ impl<'a, T> Iterator for Iter<'a, T> {
 /// See its documentation for more.
 pub struct SetIter<'a, T>(std::collections::hash_map::Iter<'a, T, usize>);
 
+impl<'a, T> std::iter::FusedIterator for SetIter<'a, T> where
+    std::collections::hash_map::Iter<'a, T, usize>: std::iter::FusedIterator
+{
+}
+
+impl<'a, T> ExactSizeIterator for SetIter<'a, T> where
+    std::collections::hash_map::Iter<'a, T, usize>: ExactSizeIterator
+{
+}
+
+impl<'a, T> Clone for SetIter<'a, T> {
+    fn clone(&self) -> Self {
+        SetIter(self.0.clone())
+    }
+}
+
+impl<T: fmt::Debug> fmt::Debug for SetIter<'_, T> {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt.debug_set().entries(self.clone()).finish()
+    }
+}
+
 impl<'a, T> Iterator for SetIter<'a, T> {
     type Item = (&'a T, usize);
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|(t, n)| (t, *n))
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 
@@ -924,10 +989,30 @@ impl<'a, T> Iterator for SetIter<'a, T> {
 /// This `struct` is created by using the implementation of [`IntoIterator`] for [`HashBag`].
 pub struct IntoIter<T>(std::collections::hash_map::IntoIter<T, usize>);
 
+impl<T> std::iter::FusedIterator for IntoIter<T> where
+    std::collections::hash_map::IntoIter<T, usize>: std::iter::FusedIterator
+{
+}
+
+impl<T> ExactSizeIterator for IntoIter<T> where
+    std::collections::hash_map::IntoIter<T, usize>: ExactSizeIterator
+{
+}
+
+impl<T: fmt::Debug> fmt::Debug for IntoIter<T> {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(fmt)
+    }
+}
+
 impl<T> Iterator for IntoIter<T> {
     type Item = (T, usize);
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
 
@@ -937,9 +1022,29 @@ impl<T> Iterator for IntoIter<T> {
 /// See its documentation for more.
 pub struct Drain<'a, T>(std::collections::hash_map::Drain<'a, T, usize>);
 
+impl<'a, T> std::iter::FusedIterator for Drain<'a, T> where
+    std::collections::hash_map::Drain<'a, T, usize>: std::iter::FusedIterator
+{
+}
+
+impl<'a, T> ExactSizeIterator for Drain<'a, T> where
+    std::collections::hash_map::Drain<'a, T, usize>: ExactSizeIterator
+{
+}
+
+impl<'a, T: fmt::Debug> fmt::Debug for Drain<'a, T> {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(fmt)
+    }
+}
+
 impl<'a, T> Iterator for Drain<'a, T> {
     type Item = (T, usize);
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
     }
 }
