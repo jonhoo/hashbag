@@ -6,11 +6,12 @@ jobs:
    parameters:
      token: $(CODECOV_TOKEN_SECRET)
      nightly: true
+     doctests: true
 
 resources:
   repositories:
     - repository: templates
       type: github
       name: crate-ci/azure-pipelines
-      ref: refs/heads/v0.3
+#     ref: refs/heads/v0.3
       endpoint: jonhoo
