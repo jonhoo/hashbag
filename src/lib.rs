@@ -88,6 +88,11 @@ use std::hash::{BuildHasher, Hash};
 /// for (book, copies) in books.set_iter() {
 ///     println!("{} ({} copies)", book, copies);
 /// }
+///
+/// // Extract the books and their counts.
+/// for (book, copies) in books {
+///     println!("{} ({} copies)", book, copies);
+/// }
 /// ```
 ///
 /// The easiest way to use `HashBag` with a custom type is to derive
@@ -96,7 +101,7 @@ use std::hash::{BuildHasher, Hash};
 ///
 /// ```
 /// use hashbag::HashBag;
-/// #[derive(Hash, Eq, PartialEq, Debug)]
+/// #[derive(Hash, Eq, PartialEq, Debug, Clone)]
 /// struct Viking {
 ///     name: String,
 ///     power: usize,
@@ -121,6 +126,16 @@ use std::hash::{BuildHasher, Hash};
 /// for (v, n) in vikings.set_iter() {
 ///     println!("{:?} ({} of them!)", v, n);
 /// }
+///
+/// // HashBags themselves can also be compared for equality,
+/// // and will do so by considering both the values and their counts.
+/// let mut vikings2 = vikings.clone();
+/// assert_eq!(vikings, vikings2);
+/// let fallen = vikings.iter().next().unwrap();
+/// vikings2.remove(fallen);
+/// assert_ne!(vikings, vikings2);
+/// vikings2.insert(Viking { name: "Snorre".to_string(), power: 1 });
+/// assert_ne!(vikings, vikings2);
 /// ```
 ///
 /// A `HashBag` with fixed list of elements can be initialized from an array:
@@ -128,9 +143,32 @@ use std::hash::{BuildHasher, Hash};
 /// ```
 /// use hashbag::HashBag;
 ///
-/// let viking_names: HashBag<&'static str> =
+/// let mut viking_names: HashBag<&'static str> =
 ///     [ "Einar", "Olaf", "Harald" ].iter().cloned().collect();
 /// // use the values stored in the bag
+/// ```
+///
+/// You can also extend the bag easily:
+///
+/// ```
+/// use hashbag::HashBag;
+///
+/// let mut vikings: HashBag<String> = HashBag::new();
+/// vikings.extend(std::iter::once("Snorre".to_string()));
+/// assert_eq!(vikings.contains("Snorre"), 1);
+///
+/// // You can extend with many instances at once:
+/// vikings.extend(std::iter::once(("Snorre".to_string(), 4)));
+/// assert_eq!(vikings.contains("Snorre"), 5);
+///
+/// // Extension also works with reference iterators if the type is Clone:
+/// let einar = String::from("Einar");
+/// vikings.extend(std::iter::once(&einar));
+/// assert_eq!(vikings.contains(&einar), 1);
+///
+/// // And extend with many instances at once:
+/// vikings.extend(std::iter::once((&einar, 4)));
+/// assert_eq!(vikings.contains(&einar), 5);
 /// ```
 #[derive(Clone)]
 pub struct HashBag<T, S = RandomState> {
@@ -610,11 +648,13 @@ where
     ///
     /// let mut bag = HashBag::new();
     ///
-    /// bag.insert_many(2, 10);
-    /// assert_eq!(bag.contains(&2), 10);
-    /// assert_eq!(bag.remove(&2), 10);
-    /// assert_eq!(bag.contains(&2), 9);
-    /// assert_eq!(bag.remove(&2), 9);
+    /// bag.insert_many('x', 2);
+    /// assert_eq!(bag.contains(&'x'), 2);
+    /// assert_eq!(bag.remove(&'x'), 2);
+    /// assert_eq!(bag.contains(&'x'), 1);
+    /// assert_eq!(bag.remove(&'x'), 1);
+    /// assert_eq!(bag.contains(&'x'), 0);
+    /// assert_eq!(bag.remove(&'x'), 0);
     /// ```
     #[inline]
     pub fn remove<Q: ?Sized>(&mut self, value: &Q) -> usize
@@ -793,7 +833,7 @@ where
 
 impl<'a, T, S> Extend<&'a T> for HashBag<T, S>
 where
-    T: 'a + Eq + Hash + Copy,
+    T: 'a + Eq + Hash + Clone,
     S: BuildHasher,
 {
     fn extend<I: IntoIterator<Item = &'a T>>(&mut self, iter: I) {
@@ -847,7 +887,7 @@ where
     S: BuildHasher + Default,
 {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        let mut bag = Self::with_hasher(Default::default());
+        let mut bag = Self::default();
         bag.extend(iter);
         bag
     }
@@ -1046,5 +1086,29 @@ impl<'a, T> Iterator for Drain<'a, T> {
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.0.size_hint()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn format_all_the_things() {
+        let vikings: HashBag<&'static str> = ["Einar", "Olaf", "Harald"].iter().cloned().collect();
+        println!("{:?}", vikings);
+        println!("{:?}", vikings.iter());
+        println!("{:?}", vikings.set_iter());
+        println!("{:?}", vikings.into_iter());
+    }
+
+    #[test]
+    fn sane_iterators() {
+        let vikings: HashBag<&'static str> = ["Einar", "Einar", "Harald"].iter().cloned().collect();
+        assert_eq!(vikings.iter().count(), 3);
+        assert_eq!(vikings.iter().clone().count(), 3);
+        assert_eq!(vikings.set_iter().count(), 2);
+        assert_eq!(vikings.set_iter().clone().count(), 2);
+        assert_eq!(vikings.into_iter().count(), 2);
     }
 }
