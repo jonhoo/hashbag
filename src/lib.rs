@@ -1095,20 +1095,30 @@ mod tests {
 
     #[test]
     fn format_all_the_things() {
-        let vikings: HashBag<&'static str> = ["Einar", "Olaf", "Harald"].iter().cloned().collect();
+        let mut vikings: HashBag<&'static str> =
+            ["Einar", "Olaf", "Harald"].iter().cloned().collect();
         println!("{:?}", vikings);
         println!("{:?}", vikings.iter());
         println!("{:?}", vikings.set_iter());
-        println!("{:?}", vikings.into_iter());
+        println!("{:?}", vikings.clone().into_iter());
+        println!("{:?}", vikings.drain());
     }
 
     #[test]
     fn sane_iterators() {
-        let vikings: HashBag<&'static str> = ["Einar", "Einar", "Harald"].iter().cloned().collect();
+        let mut vikings: HashBag<&'static str> =
+            ["Einar", "Einar", "Harald"].iter().cloned().collect();
         assert_eq!(vikings.iter().count(), 3);
+        assert_eq!(vikings.iter().size_hint(), (3, Some(3)));
         assert_eq!(vikings.iter().clone().count(), 3);
         assert_eq!(vikings.set_iter().count(), 2);
         assert_eq!(vikings.set_iter().clone().count(), 2);
-        assert_eq!(vikings.into_iter().count(), 2);
+        assert_eq!(vikings.set_iter().size_hint(), (2, Some(2)));
+        let ii = vikings.clone().into_iter();
+        assert_eq!(ii.size_hint(), (2, Some(2)));
+        assert_eq!(ii.count(), 2);
+        let di = vikings.drain();
+        assert_eq!(di.size_hint(), (2, Some(2)));
+        assert_eq!(di.count(), 2);
     }
 }
