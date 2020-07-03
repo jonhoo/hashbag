@@ -18,3 +18,11 @@ codecov = { repository = "jonhoo/hashbag", branch = "master", service = "github"
 maintenance = { status = "passively-maintained" }
 
 [dependencies]
+griddle = { version = "0.2.9", optional = true }
+
+[features]
+amortize = ["griddle"]
+
+[patch.crates-io]
+hashbrown = { git = "https://github.com/jonhoo/hashbrown.git", branch = "reuse-raw-iter" }
+griddle = { git = "https://github.com/jonhoo/griddle.git", branch = "reuse-raw-iter" }
