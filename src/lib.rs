@@ -9,6 +9,9 @@
 //!
 //! For usage examples, see the primary type [`HashBag`].
 //!
+//! If you want to use a hash table with [amortized resizes](https://github.com/jonhoo/griddle/),
+//! set the `amortize` feature.
+//!
 //!   [`std::unordered_multiset`]: http://www.cplusplus.com/reference/unordered_set/unordered_multiset/
 #![deny(
     missing_docs,
