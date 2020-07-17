@@ -9,6 +9,9 @@
 //!
 //! For usage examples, see the primary type [`HashBag`].
 //!
+//! If you want to use a hash table with [amortized resizes](https://github.com/jonhoo/griddle/),
+//! set the `amortize` feature.
+//!
 //!   [`std::unordered_multiset`]: http://www.cplusplus.com/reference/unordered_set/unordered_multiset/
 #![deny(
     missing_docs,
@@ -18,8 +21,12 @@
 )]
 #![warn(rust_2018_idioms)]
 
+#[cfg(feature = "amortize")]
+use griddle::HashMap;
 use std::borrow::Borrow;
-use std::collections::{hash_map::RandomState, HashMap};
+use std::collections::hash_map::RandomState;
+#[cfg(not(feature = "amortize"))]
+use std::collections::HashMap;
 use std::hash::{BuildHasher, Hash};
 
 /// A hash bag implemented as a `HashMap` where the value is `usize`.
@@ -170,10 +177,23 @@ use std::hash::{BuildHasher, Hash};
 /// vikings.extend(std::iter::once((&einar, 4)));
 /// assert_eq!(vikings.contains(&einar), 5);
 /// ```
-#[derive(Clone)]
 pub struct HashBag<T, S = RandomState> {
     items: HashMap<T, usize, S>,
     count: usize,
+}
+
+impl<T: Clone + Hash, S: Clone + BuildHasher> Clone for HashBag<T, S> {
+    fn clone(&self) -> Self {
+        Self {
+            items: self.items.clone(),
+            count: self.count,
+        }
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        self.items.clone_from(&source.items);
+        self.count = source.count;
+    }
 }
 
 impl<T: Hash + Eq> HashBag<T, RandomState> {
@@ -911,6 +931,11 @@ impl<T, S> IntoIterator for HashBag<T, S> {
 
 // ======== iterators
 
+#[cfg(feature = "amortize")]
+type IterInner<'a, T> = griddle::hash_map::Iter<'a, T, usize>;
+#[cfg(not(feature = "amortize"))]
+type IterInner<'a, T> = std::collections::hash_map::Iter<'a, T, usize>;
+
 /// An iterator over the items of a `HashBag`.
 ///
 /// Each value is repeated as many times as it occurs in the bag.
@@ -918,20 +943,15 @@ impl<T, S> IntoIterator for HashBag<T, S> {
 /// This `struct` is created by [`HashBag::iter`].
 /// See its documentation for more.
 pub struct Iter<'a, T> {
-    iter: std::collections::hash_map::Iter<'a, T, usize>,
+    iter: IterInner<'a, T>,
     repeat: Option<(&'a T, usize)>,
     left: usize,
 }
 
-impl<'a, T> std::iter::FusedIterator for Iter<'a, T> where
-    std::collections::hash_map::Iter<'a, T, usize>: std::iter::FusedIterator
-{
-}
+impl<'a, T> std::iter::FusedIterator for Iter<'a, T> where IterInner<'a, T>: std::iter::FusedIterator
+{}
 
-impl<'a, T> ExactSizeIterator for Iter<'a, T> where
-    std::collections::hash_map::Iter<'a, T, usize>: ExactSizeIterator
-{
-}
+impl<'a, T> ExactSizeIterator for Iter<'a, T> where IterInner<'a, T>: ExactSizeIterator {}
 
 impl<'a, T> Clone for Iter<'a, T> {
     fn clone(&self) -> Self {
@@ -950,7 +970,7 @@ impl<T: fmt::Debug> fmt::Debug for Iter<'_, T> {
 }
 
 impl<'a, T> Iter<'a, T> {
-    fn new(it: std::collections::hash_map::Iter<'a, T, usize>, n: usize) -> Self {
+    fn new(it: IterInner<'a, T>, n: usize) -> Self {
         Self {
             iter: it,
             repeat: None,
@@ -989,17 +1009,14 @@ impl<'a, T> Iterator for Iter<'a, T> {
 ///
 /// This `struct` is created by [`HashBag::set_iter`].
 /// See its documentation for more.
-pub struct SetIter<'a, T>(std::collections::hash_map::Iter<'a, T, usize>);
+pub struct SetIter<'a, T>(IterInner<'a, T>);
 
 impl<'a, T> std::iter::FusedIterator for SetIter<'a, T> where
-    std::collections::hash_map::Iter<'a, T, usize>: std::iter::FusedIterator
+    IterInner<'a, T>: std::iter::FusedIterator
 {
 }
 
-impl<'a, T> ExactSizeIterator for SetIter<'a, T> where
-    std::collections::hash_map::Iter<'a, T, usize>: ExactSizeIterator
-{
-}
+impl<'a, T> ExactSizeIterator for SetIter<'a, T> where IterInner<'a, T>: ExactSizeIterator {}
 
 impl<'a, T> Clone for SetIter<'a, T> {
     fn clone(&self) -> Self {
@@ -1024,20 +1041,19 @@ impl<'a, T> Iterator for SetIter<'a, T> {
     }
 }
 
+#[cfg(feature = "amortize")]
+type IntoIterInner<T> = griddle::hash_map::IntoIter<T, usize>;
+#[cfg(not(feature = "amortize"))]
+type IntoIterInner<T> = std::collections::hash_map::IntoIter<T, usize>;
+
 /// An owning iterator over the distinct items of a `HashBag` and their occurrence counts.
 ///
 /// This `struct` is created by using the implementation of [`IntoIterator`] for [`HashBag`].
-pub struct IntoIter<T>(std::collections::hash_map::IntoIter<T, usize>);
+pub struct IntoIter<T>(IntoIterInner<T>);
 
-impl<T> std::iter::FusedIterator for IntoIter<T> where
-    std::collections::hash_map::IntoIter<T, usize>: std::iter::FusedIterator
-{
-}
+impl<T> std::iter::FusedIterator for IntoIter<T> where IntoIterInner<T>: std::iter::FusedIterator {}
 
-impl<T> ExactSizeIterator for IntoIter<T> where
-    std::collections::hash_map::IntoIter<T, usize>: ExactSizeIterator
-{
-}
+impl<T> ExactSizeIterator for IntoIter<T> where IntoIterInner<T>: ExactSizeIterator {}
 
 impl<T: fmt::Debug> fmt::Debug for IntoIter<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -1056,21 +1072,23 @@ impl<T> Iterator for IntoIter<T> {
     }
 }
 
+#[cfg(feature = "amortize")]
+type DrainInner<'a, T> = griddle::hash_map::Drain<'a, T, usize>;
+#[cfg(not(feature = "amortize"))]
+type DrainInner<'a, T> = std::collections::hash_map::Drain<'a, T, usize>;
+
 /// An draining iterator over the distinct items of a `HashBag` and their occurrence counts.
 ///
 /// This `struct` is created by [`HashBag::drain`].
 /// See its documentation for more.
-pub struct Drain<'a, T>(std::collections::hash_map::Drain<'a, T, usize>);
+pub struct Drain<'a, T>(DrainInner<'a, T>);
 
 impl<'a, T> std::iter::FusedIterator for Drain<'a, T> where
-    std::collections::hash_map::Drain<'a, T, usize>: std::iter::FusedIterator
+    DrainInner<'a, T>: std::iter::FusedIterator
 {
 }
 
-impl<'a, T> ExactSizeIterator for Drain<'a, T> where
-    std::collections::hash_map::Drain<'a, T, usize>: ExactSizeIterator
-{
-}
+impl<'a, T> ExactSizeIterator for Drain<'a, T> where DrainInner<'a, T>: ExactSizeIterator {}
 
 impl<'a, T: fmt::Debug> fmt::Debug for Drain<'a, T> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {

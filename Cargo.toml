@@ -18,3 +18,7 @@ codecov = { repository = "jonhoo/hashbag", branch = "master", service = "github"
 maintenance = { status = "passively-maintained" }
 
 [dependencies]
+griddle = { version = "0.3", optional = true }
+
+[features]
+amortize = ["griddle"]
