@@ -957,7 +957,7 @@ impl<'a, T> Clone for Iter<'a, T> {
     fn clone(&self) -> Self {
         Iter {
             iter: self.iter.clone(),
-            repeat: self.repeat.clone(),
+            repeat: self.repeat,
             left: self.left,
         }
     }
