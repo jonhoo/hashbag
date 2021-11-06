@@ -13,12 +13,8 @@
 //! set the `amortize` feature.
 //!
 //!   [`std::unordered_multiset`]: http://www.cplusplus.com/reference/unordered_set/unordered_multiset/
-#![deny(
-    missing_docs,
-    missing_debug_implementations,
-    unreachable_pub,
-    intra_doc_link_resolution_failure
-)]
+#![deny(missing_docs, missing_debug_implementations, unreachable_pub)]
+#![cfg_attr(doc, deny(rustdoc::broken_intra_doc_links))]
 #![warn(rust_2018_idioms)]
 
 #[cfg(feature = "amortize")]
@@ -957,7 +953,7 @@ impl<'a, T> Clone for Iter<'a, T> {
     fn clone(&self) -> Self {
         Iter {
             iter: self.iter.clone(),
-            repeat: self.repeat.clone(),
+            repeat: self.repeat,
             left: self.left,
         }
     }
