@@ -13,12 +13,8 @@
 //! set the `amortize` feature.
 //!
 //!   [`std::unordered_multiset`]: http://www.cplusplus.com/reference/unordered_set/unordered_multiset/
-#![deny(
-    missing_docs,
-    missing_debug_implementations,
-    unreachable_pub,
-    rustdoc::broken_intra_doc_links
-)]
+#![deny(missing_docs, missing_debug_implementations, unreachable_pub)]
+#![cfg_attr(doc, deny(rustdoc::broken_intra_doc_links))]
 #![warn(rust_2018_idioms)]
 
 #[cfg(feature = "amortize")]
