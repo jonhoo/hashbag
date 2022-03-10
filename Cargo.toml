@@ -19,6 +19,8 @@ maintenance = { status = "passively-maintained" }
 
 [dependencies]
 griddle = { version = "0.5", optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
 
 [features]
 amortize = ["griddle"]
+with_serde = ["serde"]
