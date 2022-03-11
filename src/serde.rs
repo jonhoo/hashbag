@@ -105,7 +105,7 @@ where
     type Value = EntryWrapper<T>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("struct Duration")
+        formatter.write_str("struct HashBag Entry Wrapper")
     }
 
     fn visit_seq<V>(self, mut seq: V) -> Result<EntryWrapper<T>, V::Error>

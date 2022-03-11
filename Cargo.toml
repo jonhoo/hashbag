@@ -12,6 +12,8 @@ repository = "https://github.com/jonhoo/hashbag.git"
 keywords = ["bag","multiset","set"]
 categories = ["data-structures"]
 
+serde = ["serde"]
+
 [badges]
 azure-devops = { project = "jonhoo/jonhoo", pipeline = "hashbag", build = "17" }
 codecov = { repository = "jonhoo/hashbag", branch = "master", service = "github" }
@@ -23,4 +25,3 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 
 [features]
 amortize = ["griddle"]
-with_serde = ["serde"]
