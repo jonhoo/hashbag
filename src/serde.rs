@@ -2,8 +2,8 @@ use crate::HashBag;
 use core::fmt;
 use core::hash::{BuildHasher, Hash};
 use core::marker::PhantomData;
-use serde::de::{Error, MapAccess, SeqAccess, Visitor};
-use serde::ser::{SerializeSeq, SerializeStruct, Serializer};
+use serde::de::{Error, SeqAccess, Visitor};
+use serde::ser::{SerializeSeq, Serializer};
 use serde::Deserializer;
 use serde::{Deserialize, Serialize};
 
@@ -41,8 +41,8 @@ where
         let mut bag: HashBag<T, S> =
             HashBag::with_capacity_and_hasher(access.size_hint().unwrap_or(0), Default::default());
 
-        while let Some(entry) = access.next_element::<EntryWrapper<T>>()? {
-            bag.insert_many(entry.entry, entry.count);
+        while let Some(entry) = access.next_element::<(T, usize)>()? {
+            bag.insert_many(entry.0, entry.1);
         }
 
         Ok(bag)
@@ -74,111 +74,53 @@ where
         let mut bag = serializer.serialize_seq(Some(self.len()))?;
 
         for (entry, count) in self.set_iter() {
-            bag.serialize_element(&EntryWrapper { entry, count })?;
+            bag.serialize_element(&(&entry, &count))?;
         }
 
         bag.end()
     }
 }
 
-pub(crate) struct EntryWrapper<T> {
-    pub(crate) entry: T,
-    pub(crate) count: usize,
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-#[derive(Deserialize)]
-#[serde(field_identifier, rename_all = "lowercase")]
-enum Field {
-    Entry,
-    Count,
-}
+    use serde_json;
 
-//struct WrapperVisitor;
-struct WrapperVisitor<T> {
-    marker: PhantomData<T>,
-}
-
-impl<'de, T> Visitor<'de> for WrapperVisitor<T>
-where
-    T: Deserialize<'de>,
-{
-    type Value = EntryWrapper<T>;
-
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str("struct HashBag Entry Wrapper")
+    #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+    struct VeryHelpfulStruct {
+        pub(crate) name: String,
     }
 
-    fn visit_seq<V>(self, mut seq: V) -> Result<EntryWrapper<T>, V::Error>
-    where
-        V: SeqAccess<'de>,
-    {
-        let entry = seq
-            .next_element()?
-            .ok_or_else(|| Error::invalid_length(0, &self))?;
-        let count = seq
-            .next_element()?
-            .ok_or_else(|| Error::invalid_length(1, &self))?;
-        Ok(EntryWrapper { entry, count })
+    #[test]
+    fn format_simple_data() {
+        let vikings: HashBag<String> = ["Einar", "Olaf", "Harald"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        println!("{:?}", vikings);
+        let jsonified_vikings: String =
+            serde_json::to_string(&vikings).expect("Unable to convert data to json!");
+        println!("{}", jsonified_vikings);
+        let reconsituted_vikings: HashBag<String> =
+            serde_json::from_str(&jsonified_vikings).expect("Unable to convert json to hashbag!");
+        println!("{:?}", reconsituted_vikings);
+        assert_eq!(vikings, reconsituted_vikings);
     }
 
-    fn visit_map<V>(self, mut map: V) -> Result<EntryWrapper<T>, V::Error>
-    where
-        V: MapAccess<'de>,
-    {
-        let mut entry = None;
-        let mut count = None;
-        while let Some(key) = map.next_key()? {
-            match key {
-                Field::Entry => {
-                    if entry.is_some() {
-                        return Err(Error::duplicate_field("secs"));
-                    }
-                    entry = Some(map.next_value()?);
-                }
-                Field::Count => {
-                    if count.is_some() {
-                        return Err(Error::duplicate_field("nanos"));
-                    }
-                    count = Some(map.next_value()?);
-                }
-            }
-        }
-        let entry = entry.ok_or_else(|| Error::missing_field("entry"))?;
-        let count = count.ok_or_else(|| Error::missing_field("count"))?;
-        Ok(EntryWrapper { entry, count })
-    }
-}
-
-impl<'de, T> Deserialize<'de> for EntryWrapper<T>
-where
-    T: Deserialize<'de>,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        const FIELDS: &'static [&'static str] = &["entry", "count"];
-        deserializer.deserialize_struct(
-            "EntryWrapper",
-            FIELDS,
-            WrapperVisitor {
-                marker: PhantomData,
-            },
-        )
-    }
-}
-
-impl<T> Serialize for EntryWrapper<T>
-where
-    T: Serialize,
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut state = serializer.serialize_struct("Color", 3)?;
-        state.serialize_field("entry", &self.entry)?;
-        state.serialize_field("count", &self.count)?;
-        state.end()
+    #[test]
+    fn format_struct_data() {
+        let vikings: HashBag<VeryHelpfulStruct> = ["Einar", "Olaf", "Harald"]
+            .iter()
+            .map(|n| VeryHelpfulStruct { name: n.to_string() })
+            .collect();
+        println!("{:?}", vikings);
+        let jsonified_vikings: String =
+            serde_json::to_string(&vikings).expect("Unable to convert data to json!");
+        println!("{}", jsonified_vikings);
+        let reconsituted_vikings: HashBag<VeryHelpfulStruct> =
+            serde_json::from_str(&jsonified_vikings).expect("Unable to convert json to hashbag!");
+        println!("{:?}", reconsituted_vikings);
+        assert_eq!(vikings, reconsituted_vikings);
     }
 }
