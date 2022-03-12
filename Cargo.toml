@@ -19,8 +19,7 @@ maintenance = { status = "passively-maintained" }
 
 [dependencies]
 griddle = { version = "0.5", optional = true }
-serde = { version = "1.0", features = ["derive"]}
-#serde = { version = "1.0", features = ["derive"], optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
 
 [dev-dependencies]
 serde_json = { version = "1.0" }

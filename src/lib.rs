@@ -24,7 +24,8 @@ use std::collections::hash_map::RandomState;
 #[cfg(not(feature = "amortize"))]
 use std::collections::HashMap;
 use std::hash::{BuildHasher, Hash};
-//#[cfg(feature = "serde")]
+
+#[cfg(feature = "serde")]
 mod serde;
 /// A hash bag implemented as a `HashMap` where the value is `usize`.
 ///

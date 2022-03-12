@@ -2,7 +2,7 @@ use crate::HashBag;
 use core::fmt;
 use core::hash::{BuildHasher, Hash};
 use core::marker::PhantomData;
-use serde::de::{Error, SeqAccess, Visitor};
+use serde::de::{SeqAccess, Visitor};
 use serde::ser::{SerializeSeq, Serializer};
 use serde::Deserializer;
 use serde::{Deserialize, Serialize};
@@ -30,7 +30,7 @@ where
 {
     type Value = HashBag<T, S>;
 
-    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("a HashBag")
     }
 
@@ -112,7 +112,9 @@ mod tests {
     fn format_struct_data() {
         let vikings: HashBag<VeryHelpfulStruct> = ["Einar", "Olaf", "Harald"]
             .iter()
-            .map(|n| VeryHelpfulStruct { name: n.to_string() })
+            .map(|n| VeryHelpfulStruct {
+                name: n.to_string(),
+            })
             .collect();
         println!("{:?}", vikings);
         let jsonified_vikings: String =
