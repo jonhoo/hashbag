@@ -27,6 +27,7 @@ use std::hash::{BuildHasher, Hash};
 
 #[cfg(feature = "serde")]
 mod serde;
+
 /// A hash bag implemented as a `HashMap` where the value is `usize`.
 ///
 /// A bag, unlike a set, allows duplicate values, and keeps track of how many

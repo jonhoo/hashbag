@@ -74,7 +74,7 @@ where
         let mut bag = serializer.serialize_seq(Some(self.len()))?;
 
         for (entry, count) in self.set_iter() {
-            bag.serialize_element(&(&entry, &count))?;
+            bag.serialize_element(&(entry, &count))?;
         }
 
         bag.end()
@@ -116,6 +116,30 @@ mod tests {
                 name: n.to_string(),
             })
             .collect();
+        println!("{:?}", vikings);
+        let jsonified_vikings: String =
+            serde_json::to_string(&vikings).expect("Unable to convert data to json!");
+        println!("{}", jsonified_vikings);
+        let reconsituted_vikings: HashBag<VeryHelpfulStruct> =
+            serde_json::from_str(&jsonified_vikings).expect("Unable to convert json to hashbag!");
+        println!("{:?}", reconsituted_vikings);
+        assert_eq!(vikings, reconsituted_vikings);
+    }
+
+    #[test]
+    fn repeat_entries() {
+        let vikings: HashBag<VeryHelpfulStruct> = ["Einar", "Olaf", "Olaf", "Harald", "Harald", "Harald"]
+            .iter()
+            .map(|n| VeryHelpfulStruct {
+                name: n.to_string(),
+            })
+            .collect();
+        let einar = VeryHelpfulStruct { name: "Einar".to_string() };
+        let olaf = VeryHelpfulStruct { name: "Olaf".to_string() };
+        let harald = VeryHelpfulStruct { name: "Harald".to_string() };
+        assert_eq!(vikings.get(&einar), Some((&einar, 1)));
+        assert_eq!(vikings.get(&olaf), Some((&olaf, 2)));
+        assert_eq!(vikings.get(&harald), Some((&harald, 3)));
         println!("{:?}", vikings);
         let jsonified_vikings: String =
             serde_json::to_string(&vikings).expect("Unable to convert data to json!");
