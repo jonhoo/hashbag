@@ -128,15 +128,22 @@ mod tests {
 
     #[test]
     fn repeat_entries() {
-        let vikings: HashBag<VeryHelpfulStruct> = ["Einar", "Olaf", "Olaf", "Harald", "Harald", "Harald"]
-            .iter()
-            .map(|n| VeryHelpfulStruct {
-                name: n.to_string(),
-            })
-            .collect();
-        let einar = VeryHelpfulStruct { name: "Einar".to_string() };
-        let olaf = VeryHelpfulStruct { name: "Olaf".to_string() };
-        let harald = VeryHelpfulStruct { name: "Harald".to_string() };
+        let vikings: HashBag<VeryHelpfulStruct> =
+            ["Einar", "Olaf", "Olaf", "Harald", "Harald", "Harald"]
+                .iter()
+                .map(|n| VeryHelpfulStruct {
+                    name: n.to_string(),
+                })
+                .collect();
+        let einar = VeryHelpfulStruct {
+            name: "Einar".to_string(),
+        };
+        let olaf = VeryHelpfulStruct {
+            name: "Olaf".to_string(),
+        };
+        let harald = VeryHelpfulStruct {
+            name: "Harald".to_string(),
+        };
         assert_eq!(vikings.get(&einar), Some((&einar, 1)));
         assert_eq!(vikings.get(&olaf), Some((&olaf, 2)));
         assert_eq!(vikings.get(&harald), Some((&harald, 3)));
