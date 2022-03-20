@@ -12,6 +12,10 @@
 //! If you want to use a hash table with [amortized resizes](https://github.com/jonhoo/griddle/),
 //! set the `amortize` feature.
 //!
+//! (De)serialization via serde is also available with the `serde` feature.
+//! Deserialization note: if the incoming data contains two instances of `T` that are the same, the resulting `HashBag` will merge
+//! the counts of those instances.
+//!
 //!   [`std::unordered_multiset`]: http://www.cplusplus.com/reference/unordered_set/unordered_multiset/
 #![deny(missing_docs, missing_debug_implementations, unreachable_pub)]
 #![cfg_attr(doc, deny(rustdoc::broken_intra_doc_links))]
@@ -24,6 +28,9 @@ use std::collections::hash_map::RandomState;
 #[cfg(not(feature = "amortize"))]
 use std::collections::HashMap;
 use std::hash::{BuildHasher, Hash};
+
+#[cfg(feature = "serde")]
+mod serde;
 
 /// A hash bag implemented as a `HashMap` where the value is `usize`.
 ///
