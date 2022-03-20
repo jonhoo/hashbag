@@ -13,8 +13,8 @@
 //! set the `amortize` feature.
 //!
 //! (De)serialization via serde is also available with the `serde` feature.
-//! Serialization note: if the incoming data has repeated keys, the resulting `HashBag` will merge
-//! the counts of those keys.
+//! Deserialization note: if the incoming data contains two instances of `T` that are the same, the resulting `HashBag` will merge
+//! the counts of those instances.
 //!
 //!   [`std::unordered_multiset`]: http://www.cplusplus.com/reference/unordered_set/unordered_multiset/
 #![deny(missing_docs, missing_debug_implementations, unreachable_pub)]
