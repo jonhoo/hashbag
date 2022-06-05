@@ -1222,6 +1222,15 @@ mod tests {
     }
 
     #[test]
+    fn test_difference_debug_and_size_hint() {
+        let vikings: HashBag<&'static str> = ["Einar", "Olaf", "Harald"].iter().cloned().collect();
+        let killed_vikings: HashBag<&'static str> = ["Einar"].iter().cloned().collect();
+        let alive_vikings = vikings.difference(&killed_vikings);
+        println!("{:?}", alive_vikings);
+        assert_eq!(alive_vikings.size_hint(), (0, Some(3)));
+    }
+
+    #[test]
     fn test_difference_from_empty() {
         do_test_difference(&[], &[], &[]);
         do_test_difference(&[], &[1], &[]);
