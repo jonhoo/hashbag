@@ -702,6 +702,29 @@ where
         }
     }
 
+    /// Returns an iterator that visits all values present in `self` that is not
+    /// present in `other`. Takes the number of occurrences into account in both
+    /// bags.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use hashbag::HashBag;
+    ///
+    /// let a: HashBag<_> = [1, 2, 3, 3].iter().cloned().collect();
+    /// let b: HashBag<_> = [2, 3].iter().cloned().collect();
+    /// let expected: HashBag<_> = [1, 3].iter().cloned().collect();
+    /// let actual: HashBag<_> = a.difference(&b).cloned().collect();
+    /// assert_eq!(expected, actual);
+    /// ```
+    pub fn difference<'a>(&'a self, other: &'a HashBag<T, S>) -> Difference<'a, T, S> {
+        Difference {
+            base_iter: self.iter(),
+            other,
+            removed_from_other: HashMap::new(),
+        }
+    }
+
     /// Removes a value that is equal to the given one, and returns it if it was the last.
     ///
     /// If the matching value is not the last, a reference to the remainder is given, along with
@@ -1110,6 +1133,61 @@ impl<'a, T> Iterator for Drain<'a, T> {
     }
 }
 
+/// This `struct` is created by [`HashBag::difference`].
+/// See its documentation for more.
+pub struct Difference<'a, T, S = RandomState> {
+    /// An iterator over "self"
+    base_iter: Iter<'a, T>,
+
+    /// The bag with entries we DO NOT want to return
+    other: &'a HashBag<T, S>,
+
+    /// Keeps track of many times we have conceptually "consumed" an entry from
+    /// `other`.
+    removed_from_other: HashMap<&'a T, usize>,
+}
+
+impl<'a, T: fmt::Debug> fmt::Debug for Difference<'a, T> {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt.debug_struct("Difference")
+            .field("base_iter", &self.base_iter)
+            .field("other", &self.other)
+            .finish()
+    }
+}
+
+impl<'a, T, S> Iterator for Difference<'a, T, S>
+where
+    T: Eq + Hash,
+    S: BuildHasher,
+{
+    type Item = &'a T;
+
+    #[inline]
+    fn next(&mut self) -> Option<&'a T> {
+        loop {
+            let next = self.base_iter.next()?;
+            let removal_count = self.removed_from_other.entry(next).or_insert(0);
+
+            // Keep track of how many times we have removed the current entry.
+            // We don't actually remove anything, we just pretend we do.
+            *removal_count += 1;
+
+            // If we removed MORE entries from `other`, THEN we may start
+            // returning entries from the base iterator.
+            if *removal_count > self.other.contains(next) {
+                return Some(next);
+            }
+        }
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (_, upper_bound) = self.base_iter.size_hint();
+        (0, upper_bound)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1141,5 +1219,67 @@ mod tests {
         let di = vikings.drain();
         assert_eq!(di.size_hint(), (2, Some(2)));
         assert_eq!(di.count(), 2);
+    }
+
+    #[test]
+    fn test_difference_from_empty() {
+        do_test_difference(&[], &[], &[]);
+        do_test_difference(&[], &[1], &[]);
+        do_test_difference(&[], &[1, 1], &[]);
+        do_test_difference(&[], &[1, 1, 2], &[]);
+    }
+
+    #[test]
+    fn test_difference_from_one() {
+        do_test_difference(&[1], &[], &[1]);
+        do_test_difference(&[1], &[1], &[]);
+        do_test_difference(&[1], &[1, 1], &[]);
+        do_test_difference(&[1], &[2], &[1]);
+        do_test_difference(&[1], &[1, 2], &[]);
+        do_test_difference(&[1], &[2, 2], &[1]);
+    }
+
+    #[test]
+    fn test_difference_from_duplicate_ones() {
+        do_test_difference(&[1, 1], &[], &[1, 1]);
+        do_test_difference(&[1, 1], &[1], &[1]);
+        do_test_difference(&[1, 1], &[1, 1], &[]);
+        do_test_difference(&[1, 1], &[2], &[1, 1]);
+        do_test_difference(&[1, 1], &[1, 2], &[1]);
+        do_test_difference(&[1, 1], &[2, 2], &[1, 1]);
+    }
+
+    #[test]
+    fn test_difference_from_one_one_two() {
+        do_test_difference(&[1, 1, 2], &[], &[1, 1, 2]);
+        do_test_difference(&[1, 1, 2], &[1], &[1, 2]);
+        do_test_difference(&[1, 1, 2], &[1, 1], &[2]);
+        do_test_difference(&[1, 1, 2], &[2], &[1, 1]);
+        do_test_difference(&[1, 1, 2], &[1, 2], &[1]);
+        do_test_difference(&[1, 1, 2], &[2, 2], &[1, 1]);
+    }
+
+    #[test]
+    fn test_difference_from_larger_bags() {
+        do_test_difference(&[1, 2, 2, 3], &[3], &[1, 2, 2]);
+        do_test_difference(&[1, 2, 2, 3], &[4], &[1, 2, 2, 3]);
+        do_test_difference(&[2, 2, 2, 2], &[2, 2], &[2, 2]);
+        do_test_difference(&[2, 2, 2, 2], &[], &[2, 2, 2, 2]);
+    }
+
+    fn do_test_difference(
+        self_entries: &[isize],
+        other_entries: &[isize],
+        expected_entries: &[isize],
+    ) {
+        let this = self_entries.iter().collect::<HashBag<_>>();
+        let other = other_entries.iter().collect::<HashBag<_>>();
+        let expected = expected_entries.iter().collect::<HashBag<_>>();
+        assert_eq!(
+            this.difference(&other)
+                .copied()
+                .collect::<HashBag<&isize>>(),
+            expected
+        );
     }
 }
