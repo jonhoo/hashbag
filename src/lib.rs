@@ -710,18 +710,20 @@ where
     ///
     /// ```
     /// use hashbag::HashBag;
+    /// use std::collections::HashSet;
+    /// use std::iter::FromIterator;
     ///
     /// let a: HashBag<_> = [1, 2, 3, 3].iter().cloned().collect();
     /// let b: HashBag<_> = [2, 3].iter().cloned().collect();
-    /// let expected: HashBag<_> = [1, 3].iter().cloned().collect();
-    /// let actual: HashBag<_> = a.difference(&b).cloned().collect();
+    /// let expected: HashSet<_> = HashSet::from_iter([(&1, 1), (&3, 1)]);
+    /// let actual: HashSet<_> = a.difference(&b).collect();
     /// assert_eq!(expected, actual);
     /// ```
     pub fn difference<'a>(&'a self, other: &'a HashBag<T, S>) -> Difference<'a, T, S> {
         Difference {
-            base_iter: self.iter(),
+            items: self.items.iter(),
             other,
-            removed_from_other: HashMap::new(),
+            upper_bound: self.count,
         }
     }
 
@@ -1136,21 +1138,20 @@ impl<'a, T> Iterator for Drain<'a, T> {
 /// This `struct` is created by [`HashBag::difference`].
 /// See its documentation for more.
 pub struct Difference<'a, T, S = RandomState> {
-    /// An iterator over "self"
-    base_iter: Iter<'a, T>,
+    /// An iterator over `self` items
+    items: IterInner<'a, T>,
 
     /// The bag with entries we DO NOT want to return
     other: &'a HashBag<T, S>,
 
-    /// Keeps track of many times we have conceptually "consumed" an entry from
-    /// `other`.
-    removed_from_other: HashMap<&'a T, usize>,
+    /// For `size_hint()`
+    upper_bound: usize,
 }
 
 impl<'a, T: fmt::Debug> fmt::Debug for Difference<'a, T> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt.debug_struct("Difference")
-            .field("base_iter", &self.base_iter)
+            .field("items", &self.items)
             .field("other", &self.other)
             .finish()
     }
@@ -1161,30 +1162,22 @@ where
     T: Eq + Hash,
     S: BuildHasher,
 {
-    type Item = &'a T;
+    type Item = (&'a T, usize);
 
     #[inline]
-    fn next(&mut self) -> Option<&'a T> {
+    fn next(&mut self) -> Option<Self::Item> {
         loop {
-            let next = self.base_iter.next()?;
-            let removal_count = self.removed_from_other.entry(next).or_insert(0);
-
-            // Keep track of how many times we have removed the current entry.
-            // We don't actually remove anything, we just pretend we do.
-            *removal_count += 1;
-
-            // If we removed MORE entries from `other`, THEN we may start
-            // returning entries from the base iterator.
-            if *removal_count > self.other.contains(next) {
-                return Some(next);
+            let (t, n) = self.items.next()?;
+            let other_n = self.other.contains(t);
+            if other_n < *n {
+                return Some((t, *n - other_n));
             }
         }
     }
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let (_, upper_bound) = self.base_iter.size_hint();
-        (0, upper_bound)
+        (0, Some(self.upper_bound))
     }
 }
 
@@ -1284,11 +1277,11 @@ mod tests {
         let this = self_entries.iter().collect::<HashBag<_>>();
         let other = other_entries.iter().collect::<HashBag<_>>();
         let expected = expected_entries.iter().collect::<HashBag<_>>();
-        assert_eq!(
-            this.difference(&other)
-                .copied()
-                .collect::<HashBag<&isize>>(),
-            expected
-        );
+        let mut actual = HashBag::new();
+        for (t, n) in this.difference(&other) {
+            actual.insert_many(*t, n);
+        }
+
+        assert_eq!(actual, expected);
     }
 }
