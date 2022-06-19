@@ -1173,7 +1173,7 @@ where
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        self.items.size_hint()
+        (0, self.items.size_hint().1)
     }
 }
 
@@ -1217,7 +1217,7 @@ mod tests {
         let mut alive_vikings = vikings.subtract(&killed_vikings);
         println!("{:?}", alive_vikings);
 
-        assert_eq!(alive_vikings.size_hint(), (3, Some(3)));
+        assert_eq!(alive_vikings.size_hint(), (0, Some(3)));
 
         // Note that we can't assume in what order the vikings will come, only
         // that there shall be Some(_) viking two times
