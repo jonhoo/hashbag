@@ -1211,23 +1211,31 @@ mod tests {
     }
 
     #[test]
-    fn test_difference_debug_and_size_hint() {
+    fn test_difference_debug() {
         let vikings: HashBag<&'static str> = ["Einar", "Olaf", "Harald"].iter().cloned().collect();
         let killed_vikings: HashBag<&'static str> = ["Einar"].iter().cloned().collect();
-        let mut alive_vikings = vikings.difference(&killed_vikings);
+        let alive_vikings = vikings.difference(&killed_vikings);
         println!("{:?}", alive_vikings);
+    }
 
-        assert_eq!(alive_vikings.size_hint(), (0, Some(3)));
+    #[test]
+    fn test_difference_size_hint() {
+        let bag: HashBag<_> = [3, 2, 1].iter().cloned().collect();
+        let empty_bag = HashBag::new();
+        let mut difference = bag.difference(&empty_bag);
 
-        // Note that we can't assume in what order the vikings will come, only
-        // that there shall be Some(_) viking two times
-        alive_vikings.next().unwrap();
-        alive_vikings.next().unwrap();
-        assert_eq!(alive_vikings.next(), None);
-
-        // At this point we know that the size hint shall be able to say that
-        // there are no more items
-        assert_eq!(alive_vikings.size_hint(), (0, Some(0)));
+        // Since the difference has the same number of entries as the bag, we
+        // can predict how the size_hint() will behave, because the iteration
+        // order does not matter
+        assert_eq!(difference.size_hint(), (0, Some(3)));
+        difference.next().unwrap();
+        assert_eq!(difference.size_hint(), (0, Some(2)));
+        difference.next().unwrap();
+        assert_eq!(difference.size_hint(), (0, Some(1)));
+        difference.next().unwrap();
+        assert_eq!(difference.size_hint(), (0, Some(0)));
+        assert_eq!(difference.next(), None);
+        assert_eq!(difference.size_hint(), (0, Some(0)));
     }
 
     #[test]
