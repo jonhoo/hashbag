@@ -702,9 +702,10 @@ where
         }
     }
 
-    /// Returns an iterator that visits all values present in `self` that is not
-    /// present in `other`. Takes the number of occurrences into account in both
-    /// bags.
+    /// Returns an iterator over all the elements that are in `self` with a
+    /// higher occurrence count than in `other`. The count in the returned
+    /// iterator represents how many more of a given element are in `self` than
+    /// `other`.
     ///
     /// # Examples
     ///
