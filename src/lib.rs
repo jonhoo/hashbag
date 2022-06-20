@@ -720,11 +720,18 @@ where
     /// let actual: HashSet<_> = a.difference(&b).collect();
     /// assert_eq!(expected, actual);
     /// ```
-    pub fn difference<'a>(&'a self, other: &'a HashBag<T, S>) -> Difference<'a, T, S> {
-        Difference {
-            items: self.items.iter(),
-            other,
-        }
+    pub fn difference<'a>(
+        &'a self,
+        other: &'a HashBag<T, S>,
+    ) -> impl Iterator<Item = (&'a T, usize)> {
+        self.items.iter().filter_map(move |(x, &self_count)| {
+            let other_count = other.contains(x);
+            if self_count > other_count {
+                Some((x, self_count - other_count))
+            } else {
+                None
+            }
+        })
     }
 
     /// Removes a value that is equal to the given one, and returns it if it was the last.
@@ -1135,49 +1142,6 @@ impl<'a, T> Iterator for Drain<'a, T> {
     }
 }
 
-/// This `struct` is created by [`HashBag::difference`].
-/// See its documentation for more.
-pub struct Difference<'a, T, S = RandomState> {
-    /// An iterator over `self` items
-    items: IterInner<'a, T>,
-
-    /// The bag with entries we DO NOT want to return
-    other: &'a HashBag<T, S>,
-}
-
-impl<'a, T: fmt::Debug> fmt::Debug for Difference<'a, T> {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.debug_struct("Difference")
-            .field("items", &self.items)
-            .field("other", &self.other)
-            .finish()
-    }
-}
-
-impl<'a, T, S> Iterator for Difference<'a, T, S>
-where
-    T: Eq + Hash,
-    S: BuildHasher,
-{
-    type Item = (&'a T, usize);
-
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            let (t, n) = self.items.next()?;
-            let other_n = self.other.contains(t);
-            if other_n < *n {
-                return Some((t, *n - other_n));
-            }
-        }
-    }
-
-    #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        (0, self.items.size_hint().1)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1209,14 +1173,6 @@ mod tests {
         let di = vikings.drain();
         assert_eq!(di.size_hint(), (2, Some(2)));
         assert_eq!(di.count(), 2);
-    }
-
-    #[test]
-    fn test_difference_debug() {
-        let vikings: HashBag<&'static str> = ["Einar", "Olaf", "Harald"].iter().cloned().collect();
-        let killed_vikings: HashBag<&'static str> = ["Einar"].iter().cloned().collect();
-        let alive_vikings = vikings.difference(&killed_vikings);
-        println!("{:?}", alive_vikings);
     }
 
     #[test]
