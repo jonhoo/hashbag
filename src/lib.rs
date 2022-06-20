@@ -716,11 +716,11 @@ where
     /// let a: HashBag<_> = [1, 2, 3, 3].iter().cloned().collect();
     /// let b: HashBag<_> = [2, 3].iter().cloned().collect();
     /// let expected: HashSet<_> = HashSet::from_iter([(&1, 1), (&3, 1)]);
-    /// let actual: HashSet<_> = a.subtract(&b).collect();
+    /// let actual: HashSet<_> = a.difference(&b).collect();
     /// assert_eq!(expected, actual);
     /// ```
-    pub fn subtract<'a>(&'a self, other: &'a HashBag<T, S>) -> Subtract<'a, T, S> {
-        Subtract {
+    pub fn difference<'a>(&'a self, other: &'a HashBag<T, S>) -> Difference<'a, T, S> {
+        Difference {
             items: self.items.iter(),
             other,
         }
@@ -1134,9 +1134,9 @@ impl<'a, T> Iterator for Drain<'a, T> {
     }
 }
 
-/// This `struct` is created by [`HashBag::subtract`].
+/// This `struct` is created by [`HashBag::difference`].
 /// See its documentation for more.
-pub struct Subtract<'a, T, S = RandomState> {
+pub struct Difference<'a, T, S = RandomState> {
     /// An iterator over `self` items
     items: IterInner<'a, T>,
 
@@ -1144,16 +1144,16 @@ pub struct Subtract<'a, T, S = RandomState> {
     other: &'a HashBag<T, S>,
 }
 
-impl<'a, T: fmt::Debug> fmt::Debug for Subtract<'a, T> {
+impl<'a, T: fmt::Debug> fmt::Debug for Difference<'a, T> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.debug_struct("Subtract")
+        fmt.debug_struct("Difference")
             .field("items", &self.items)
             .field("other", &self.other)
             .finish()
     }
 }
 
-impl<'a, T, S> Iterator for Subtract<'a, T, S>
+impl<'a, T, S> Iterator for Difference<'a, T, S>
 where
     T: Eq + Hash,
     S: BuildHasher,
@@ -1211,10 +1211,10 @@ mod tests {
     }
 
     #[test]
-    fn test_subtract_debug_and_size_hint() {
+    fn test_difference_debug_and_size_hint() {
         let vikings: HashBag<&'static str> = ["Einar", "Olaf", "Harald"].iter().cloned().collect();
         let killed_vikings: HashBag<&'static str> = ["Einar"].iter().cloned().collect();
-        let mut alive_vikings = vikings.subtract(&killed_vikings);
+        let mut alive_vikings = vikings.difference(&killed_vikings);
         println!("{:?}", alive_vikings);
 
         assert_eq!(alive_vikings.size_hint(), (0, Some(3)));
@@ -1231,52 +1231,52 @@ mod tests {
     }
 
     #[test]
-    fn test_subtract_from_empty() {
-        do_test_subtract(&[], &[], &[]);
-        do_test_subtract(&[], &[1], &[]);
-        do_test_subtract(&[], &[1, 1], &[]);
-        do_test_subtract(&[], &[1, 1, 2], &[]);
+    fn test_difference_from_empty() {
+        do_test_difference(&[], &[], &[]);
+        do_test_difference(&[], &[1], &[]);
+        do_test_difference(&[], &[1, 1], &[]);
+        do_test_difference(&[], &[1, 1, 2], &[]);
     }
 
     #[test]
-    fn test_subtract_from_one() {
-        do_test_subtract(&[1], &[], &[1]);
-        do_test_subtract(&[1], &[1], &[]);
-        do_test_subtract(&[1], &[1, 1], &[]);
-        do_test_subtract(&[1], &[2], &[1]);
-        do_test_subtract(&[1], &[1, 2], &[]);
-        do_test_subtract(&[1], &[2, 2], &[1]);
+    fn test_difference_from_one() {
+        do_test_difference(&[1], &[], &[1]);
+        do_test_difference(&[1], &[1], &[]);
+        do_test_difference(&[1], &[1, 1], &[]);
+        do_test_difference(&[1], &[2], &[1]);
+        do_test_difference(&[1], &[1, 2], &[]);
+        do_test_difference(&[1], &[2, 2], &[1]);
     }
 
     #[test]
-    fn test_subtract_from_duplicate_ones() {
-        do_test_subtract(&[1, 1], &[], &[1, 1]);
-        do_test_subtract(&[1, 1], &[1], &[1]);
-        do_test_subtract(&[1, 1], &[1, 1], &[]);
-        do_test_subtract(&[1, 1], &[2], &[1, 1]);
-        do_test_subtract(&[1, 1], &[1, 2], &[1]);
-        do_test_subtract(&[1, 1], &[2, 2], &[1, 1]);
+    fn test_difference_from_duplicate_ones() {
+        do_test_difference(&[1, 1], &[], &[1, 1]);
+        do_test_difference(&[1, 1], &[1], &[1]);
+        do_test_difference(&[1, 1], &[1, 1], &[]);
+        do_test_difference(&[1, 1], &[2], &[1, 1]);
+        do_test_difference(&[1, 1], &[1, 2], &[1]);
+        do_test_difference(&[1, 1], &[2, 2], &[1, 1]);
     }
 
     #[test]
-    fn test_subtract_from_one_one_two() {
-        do_test_subtract(&[1, 1, 2], &[], &[1, 1, 2]);
-        do_test_subtract(&[1, 1, 2], &[1], &[1, 2]);
-        do_test_subtract(&[1, 1, 2], &[1, 1], &[2]);
-        do_test_subtract(&[1, 1, 2], &[2], &[1, 1]);
-        do_test_subtract(&[1, 1, 2], &[1, 2], &[1]);
-        do_test_subtract(&[1, 1, 2], &[2, 2], &[1, 1]);
+    fn test_difference_from_one_one_two() {
+        do_test_difference(&[1, 1, 2], &[], &[1, 1, 2]);
+        do_test_difference(&[1, 1, 2], &[1], &[1, 2]);
+        do_test_difference(&[1, 1, 2], &[1, 1], &[2]);
+        do_test_difference(&[1, 1, 2], &[2], &[1, 1]);
+        do_test_difference(&[1, 1, 2], &[1, 2], &[1]);
+        do_test_difference(&[1, 1, 2], &[2, 2], &[1, 1]);
     }
 
     #[test]
-    fn test_subtract_from_larger_bags() {
-        do_test_subtract(&[1, 2, 2, 3], &[3], &[1, 2, 2]);
-        do_test_subtract(&[1, 2, 2, 3], &[4], &[1, 2, 2, 3]);
-        do_test_subtract(&[2, 2, 2, 2], &[2, 2], &[2, 2]);
-        do_test_subtract(&[2, 2, 2, 2], &[], &[2, 2, 2, 2]);
+    fn test_difference_from_larger_bags() {
+        do_test_difference(&[1, 2, 2, 3], &[3], &[1, 2, 2]);
+        do_test_difference(&[1, 2, 2, 3], &[4], &[1, 2, 2, 3]);
+        do_test_difference(&[2, 2, 2, 2], &[2, 2], &[2, 2]);
+        do_test_difference(&[2, 2, 2, 2], &[], &[2, 2, 2, 2]);
     }
 
-    fn do_test_subtract(
+    fn do_test_difference(
         self_entries: &[isize],
         other_entries: &[isize],
         expected_entries: &[isize],
@@ -1285,7 +1285,7 @@ mod tests {
         let other = other_entries.iter().collect::<HashBag<_>>();
         let expected = expected_entries.iter().collect::<HashBag<_>>();
         let mut actual = HashBag::new();
-        for (t, n) in this.subtract(&other) {
+        for (t, n) in this.difference(&other) {
             actual.insert_many(*t, n);
         }
 
