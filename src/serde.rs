@@ -108,10 +108,10 @@ mod tests {
         let jsonified_vikings: String =
             serde_json::to_string(&vikings).expect("Unable to convert data to json!");
         println!("JSON: {}", jsonified_vikings);
-        let reconsituted_vikings: HashBag<String> =
+        let reconstituted_vikings: HashBag<String> =
             serde_json::from_str(&jsonified_vikings).expect("Unable to convert json to hashbag!");
-        println!("From json: {:?}", reconsituted_vikings);
-        assert_eq!(vikings, reconsituted_vikings);
+        println!("From json: {:?}", reconstituted_vikings);
+        assert_eq!(vikings, reconstituted_vikings);
     }
 
     #[test]
@@ -139,31 +139,31 @@ mod tests {
         let jsonified_vikings: String =
             serde_json::to_string(&vikings).expect("Unable to convert data to json!");
         println!("JSON: {}", jsonified_vikings);
-        let reconsituted_vikings: HashBag<VeryHelpfulStruct> =
+        let reconstituted_vikings: HashBag<VeryHelpfulStruct> =
             serde_json::from_str(&jsonified_vikings).expect("Unable to convert json to hashbag!");
-        println!("From json: {:?}", reconsituted_vikings);
-        assert_eq!(vikings, reconsituted_vikings);
+        println!("From json: {:?}", reconstituted_vikings);
+        assert_eq!(vikings, reconstituted_vikings);
     }
 
     #[test]
     fn repeat_simple_entries() {
         let jsonified_vikings: String =
             "[[\"Einar\",1],[\"Olaf\",1],[\"Olaf\",1],[\"Harald\",2],[\"Harald\",1]]".to_string();
-        let reconsituted_vikings: HashBag<String> =
+        let reconstituted_vikings: HashBag<String> =
             serde_json::from_str(&jsonified_vikings).expect("Unable to convert json to hashbag!");
         let einar = "Einar".to_string();
         let olaf = "Olaf".to_string();
         let harald = "Harald".to_string();
-        assert_eq!(reconsituted_vikings.get(&einar), Some((&einar, 1)));
-        assert_eq!(reconsituted_vikings.get(&olaf), Some((&olaf, 2)));
-        assert_eq!(reconsituted_vikings.get(&harald), Some((&harald, 3)));
+        assert_eq!(reconstituted_vikings.get(&einar), Some((&einar, 1)));
+        assert_eq!(reconstituted_vikings.get(&olaf), Some((&olaf, 2)));
+        assert_eq!(reconstituted_vikings.get(&harald), Some((&harald, 3)));
     }
 
     #[test]
     fn repeat_struct_entries() {
         let jsonified_vikings: String =
             "[[{\"name\":\"Einar\"},1],[{\"name\":\"Olaf\"},1],[{\"name\":\"Olaf\"},1],[{\"name\":\"Harald\"},2],[{\"name\":\"Harald\"},1]]".to_string();
-        let reconsituted_vikings: HashBag<VeryHelpfulStruct> =
+        let reconstituted_vikings: HashBag<VeryHelpfulStruct> =
             serde_json::from_str(&jsonified_vikings).expect("Unable to convert json to hashbag!");
         let einar = VeryHelpfulStruct {
             name: "Einar".to_string(),
@@ -174,8 +174,8 @@ mod tests {
         let harald = VeryHelpfulStruct {
             name: "Harald".to_string(),
         };
-        assert_eq!(reconsituted_vikings.get(&einar), Some((&einar, 1)));
-        assert_eq!(reconsituted_vikings.get(&olaf), Some((&olaf, 2)));
-        assert_eq!(reconsituted_vikings.get(&harald), Some((&harald, 3)));
+        assert_eq!(reconstituted_vikings.get(&einar), Some((&einar, 1)));
+        assert_eq!(reconstituted_vikings.get(&olaf), Some((&olaf, 2)));
+        assert_eq!(reconstituted_vikings.get(&harald), Some((&harald, 3)));
     }
 }
