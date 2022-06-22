@@ -702,6 +702,38 @@ where
         }
     }
 
+    /// Returns an iterator over all the elements that are in `self` with a
+    /// higher occurrence count than in `other`. The count in the returned
+    /// iterator represents how many more of a given element are in `self` than
+    /// `other`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use hashbag::HashBag;
+    /// use std::collections::HashSet;
+    /// use std::iter::FromIterator;
+    ///
+    /// let a: HashBag<_> = [1, 2, 3, 3].iter().cloned().collect();
+    /// let b: HashBag<_> = [2, 3].iter().cloned().collect();
+    /// let expected: HashSet<_> = HashSet::from_iter([(&1, 1), (&3, 1)]);
+    /// let actual: HashSet<_> = a.difference(&b).collect();
+    /// assert_eq!(expected, actual);
+    /// ```
+    pub fn difference<'a>(
+        &'a self,
+        other: &'a HashBag<T, S>,
+    ) -> impl Iterator<Item = (&'a T, usize)> {
+        self.items.iter().filter_map(move |(x, &self_count)| {
+            let other_count = other.contains(x);
+            if self_count > other_count {
+                Some((x, self_count - other_count))
+            } else {
+                None
+            }
+        })
+    }
+
     /// Removes a value that is equal to the given one, and returns it if it was the last.
     ///
     /// If the matching value is not the last, a reference to the remainder is given, along with
@@ -1141,5 +1173,87 @@ mod tests {
         let di = vikings.drain();
         assert_eq!(di.size_hint(), (2, Some(2)));
         assert_eq!(di.count(), 2);
+    }
+
+    #[test]
+    fn test_difference_size_hint() {
+        let bag: HashBag<_> = [3, 2, 1].iter().cloned().collect();
+        let empty_bag = HashBag::new();
+        let mut difference = bag.difference(&empty_bag);
+
+        // Since the difference has the same number of entries as the bag, we
+        // can predict how the size_hint() will behave, because the iteration
+        // order does not matter
+        assert_eq!(difference.size_hint(), (0, Some(3)));
+        difference.next().unwrap();
+        assert_eq!(difference.size_hint(), (0, Some(2)));
+        difference.next().unwrap();
+        assert_eq!(difference.size_hint(), (0, Some(1)));
+        difference.next().unwrap();
+        assert_eq!(difference.size_hint(), (0, Some(0)));
+        assert_eq!(difference.next(), None);
+        assert_eq!(difference.size_hint(), (0, Some(0)));
+    }
+
+    #[test]
+    fn test_difference_from_empty() {
+        do_test_difference(&[], &[], &[]);
+        do_test_difference(&[], &[1], &[]);
+        do_test_difference(&[], &[1, 1], &[]);
+        do_test_difference(&[], &[1, 1, 2], &[]);
+    }
+
+    #[test]
+    fn test_difference_from_one() {
+        do_test_difference(&[1], &[], &[1]);
+        do_test_difference(&[1], &[1], &[]);
+        do_test_difference(&[1], &[1, 1], &[]);
+        do_test_difference(&[1], &[2], &[1]);
+        do_test_difference(&[1], &[1, 2], &[]);
+        do_test_difference(&[1], &[2, 2], &[1]);
+    }
+
+    #[test]
+    fn test_difference_from_duplicate_ones() {
+        do_test_difference(&[1, 1], &[], &[1, 1]);
+        do_test_difference(&[1, 1], &[1], &[1]);
+        do_test_difference(&[1, 1], &[1, 1], &[]);
+        do_test_difference(&[1, 1], &[2], &[1, 1]);
+        do_test_difference(&[1, 1], &[1, 2], &[1]);
+        do_test_difference(&[1, 1], &[2, 2], &[1, 1]);
+    }
+
+    #[test]
+    fn test_difference_from_one_one_two() {
+        do_test_difference(&[1, 1, 2], &[], &[1, 1, 2]);
+        do_test_difference(&[1, 1, 2], &[1], &[1, 2]);
+        do_test_difference(&[1, 1, 2], &[1, 1], &[2]);
+        do_test_difference(&[1, 1, 2], &[2], &[1, 1]);
+        do_test_difference(&[1, 1, 2], &[1, 2], &[1]);
+        do_test_difference(&[1, 1, 2], &[2, 2], &[1, 1]);
+    }
+
+    #[test]
+    fn test_difference_from_larger_bags() {
+        do_test_difference(&[1, 2, 2, 3], &[3], &[1, 2, 2]);
+        do_test_difference(&[1, 2, 2, 3], &[4], &[1, 2, 2, 3]);
+        do_test_difference(&[2, 2, 2, 2], &[2, 2], &[2, 2]);
+        do_test_difference(&[2, 2, 2, 2], &[], &[2, 2, 2, 2]);
+    }
+
+    fn do_test_difference(
+        self_entries: &[isize],
+        other_entries: &[isize],
+        expected_entries: &[isize],
+    ) {
+        let this = self_entries.iter().collect::<HashBag<_>>();
+        let other = other_entries.iter().collect::<HashBag<_>>();
+        let expected = expected_entries.iter().collect::<HashBag<_>>();
+        let mut actual = HashBag::new();
+        for (t, n) in this.difference(&other) {
+            actual.insert_many(*t, n);
+        }
+
+        assert_eq!(actual, expected);
     }
 }
