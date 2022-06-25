@@ -759,6 +759,34 @@ where
             .map(|(x, self_count, other_count)| (x, self_count - other_count))
     }
 
+    /// Returns an iterator over all the elements that are in `self` or `other`.
+    /// The iterator also yields the difference in counts between `self` and `other`.
+    ///
+    /// Unlike 'difference' which only yields elements that have a higher count in `self` than in `other`,
+    /// this iterator yields all elements that are in either of the `HashBag`s. Elements that have a higher
+    /// count in `other` than in self (including elements that are not in `self`) will have a negative count.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use hashbag::HashBag;
+    /// use std::collections::HashSet;
+    /// use std::iter::FromIterator;
+    ///
+    /// let a: HashBag<_> = [1, 2, 3, 3].iter().cloned().collect();
+    /// let b: HashBag<_> = [2, 3, 4, 4].iter().cloned().collect();
+    /// let expected: HashSet<_> = HashSet::from_iter([(&1, 1), (&2, 0), (&3, 1), (&4, -2)]);
+    /// let actual: HashSet<_> = a.signed_difference(&b).collect();
+    /// assert_eq!(expected, actual);
+    /// ```
+    pub fn signed_difference<'a>(
+        &'a self,
+        other: &'a HashBag<T, S>,
+    ) -> impl Iterator<Item = (&'a T, isize)> {
+        self.outer_join(other)
+            .map(|(x, self_count, other_count)| (x, self_count as isize - other_count as isize))
+    }
+
     /// Returns an iterator over all of the elements that are in `self` but not in `other`.
     ///
     /// # Examples
