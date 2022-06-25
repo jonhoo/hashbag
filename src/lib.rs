@@ -1335,4 +1335,31 @@ mod tests {
         let actual: HashSet<_> = this_hashbag.outer_join(&other_hashbag).collect();
         assert_eq!(expected, actual);
     }
+
+    #[test]
+    fn test_not_in_with_empty_self() {
+        let this: HashBag<_> = HashBag::new();
+        let other: HashBag<_> = [1, 2, 3, 3].iter().cloned().collect();
+        let expected = HashSet::new();
+        let actual: HashSet<_> = this.not_in(&other).collect();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_not_in_with_empty_other() {
+        let this: HashBag<_> = [1, 2, 3, 3].iter().cloned().collect();
+        let other: HashBag<_> = HashBag::new();
+        let expected: HashSet<_> = HashSet::from_iter([(&1, 1), (&2, 1), (&3, 2)]);
+        let actual: HashSet<_> = this.not_in(&other).collect();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_not_in_with_overlap() {
+        let this: HashBag<_> = [1, 2, 3, 3].iter().cloned().collect();
+        let other: HashBag<_> = [2, 4].iter().cloned().collect();
+        let expected: HashSet<_> = HashSet::from_iter([(&1, 1), (&3, 2)]);
+        let actual: HashSet<_> = this.not_in(&other).collect();
+        assert_eq!(expected, actual);
+    }
 }
