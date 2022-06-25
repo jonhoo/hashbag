@@ -1340,7 +1340,7 @@ mod tests {
 
     #[test]
     fn test_outer_join_with_empty_other() {
-        do_test_outer_join(&[], &[1, 2, 2, 3], &[(&1, 0, 1), (&2, 0, 2), (&3, 0, 1)]);
+        do_test_outer_join(&[1, 2, 2, 3], &[], &[(&1, 1, 0), (&2, 2, 0), (&3, 1, 0)]);
     }
 
     #[test]
