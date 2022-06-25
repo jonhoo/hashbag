@@ -702,6 +702,40 @@ where
         }
     }
 
+    /// Returns an iterator over all of the elements that are in `self` or `other`.
+    /// The iterator also yields the respective counts in `self` and `other` in that order.
+    /// Elements that are in `self` are yielded before any elements that are exclusively in `other`.
+    /// Each distinct element is yielded only once.
+    ///
+    /// # Examples
+    /// ```
+    /// use hashbag::HashBag;
+    /// use std::collections::HashSet;
+    /// use std::iter::FromIterator;
+    ///
+    /// let a: HashBag<_> = "hash".chars().collect();
+    /// let b: HashBag<_> = "math".chars().collect();
+    /// let expected: HashSet<_> = HashSet::from_iter([(&'h', 2, 1), (&'a', 1, 1), (&'s', 1, 0), (&'m', 0, 1), (&'t', 0, 1)]);
+    /// let actual: HashSet<_> = a.outer_join(&b).collect();
+    /// assert_eq!(expected, actual);
+    /// ```
+    pub fn outer_join<'a>(
+        &'a self,
+        other: &'a HashBag<T, S>,
+    ) -> impl Iterator<Item = (&'a T, usize, usize)> {
+        self.items
+            .iter()
+            .map(move |(x, &self_count)| (x, self_count, other.contains(x)))
+            .chain(other.items.iter().filter_map(move |(x, &other_count)| {
+                let self_count = self.contains(x);
+                if self_count == 0 {
+                    Some((x, self_count, other_count))
+                } else {
+                    None
+                }
+            }))
+    }
+
     /// Returns an iterator over all the elements that are in `self` with a
     /// higher occurrence count than in `other`. The count in the returned
     /// iterator represents how many more of a given element are in `self` than
@@ -724,14 +758,64 @@ where
         &'a self,
         other: &'a HashBag<T, S>,
     ) -> impl Iterator<Item = (&'a T, usize)> {
-        self.items.iter().filter_map(move |(x, &self_count)| {
-            let other_count = other.contains(x);
-            if self_count > other_count {
-                Some((x, self_count - other_count))
-            } else {
-                None
-            }
-        })
+        self.outer_join(other)
+            .take_while(|(_, self_count, _)| self_count > &0)
+            .filter(|(_x, self_count, other_count)| self_count > other_count)
+            .map(|(x, self_count, other_count)| (x, self_count - other_count))
+    }
+
+    /// Returns an iterator over all the elements that are in `self` or `other`.
+    /// The iterator also yields the difference in counts between `self` and `other`.
+    ///
+    /// Unlike 'difference' which only yields elements that have a higher count in `self` than in `other`,
+    /// this iterator yields all elements that are in either of the `HashBag`s. Elements that have a higher
+    /// count in `other` than in self (including elements that are not in `self`) will have a negative count.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use hashbag::HashBag;
+    /// use std::collections::HashSet;
+    /// use std::iter::FromIterator;
+    ///
+    /// let a: HashBag<_> = [1, 2, 3, 3].iter().cloned().collect();
+    /// let b: HashBag<_> = [2, 3, 4, 4].iter().cloned().collect();
+    /// let expected: HashSet<_> = HashSet::from_iter([(&1, 1), (&2, 0), (&3, 1), (&4, -2)]);
+    /// let actual: HashSet<_> = a.signed_difference(&b).collect();
+    /// assert_eq!(expected, actual);
+    /// ```
+    pub fn signed_difference<'a>(
+        &'a self,
+        other: &'a HashBag<T, S>,
+    ) -> impl Iterator<Item = (&'a T, isize)> {
+        self.outer_join(other)
+            .map(|(x, self_count, other_count)| (x, self_count as isize - other_count as isize))
+    }
+
+    /// Returns an iterator over all of the elements that are in `self` but not in `other`.
+    ///
+    /// # Examples
+    /// ```
+    /// use hashbag::HashBag;
+    /// use std::collections::HashSet;
+    /// use std::iter::FromIterator;
+    ///
+    /// let a: HashBag<_> = [1, 2, 3, 3].iter().cloned().collect();
+    /// let b: HashBag<_> = [2, 3].iter().cloned().collect();
+    /// let expected: HashSet<_> = HashSet::from_iter([(&1, 1)]);
+    /// let actual: HashSet<_> = a.not_in(&b).collect();
+    /// assert_eq!(expected, actual);
+    /// ```
+    pub fn not_in<'a>(&'a self, other: &'a HashBag<T, S>) -> impl Iterator<Item = (&'a T, usize)> {
+        self.outer_join(other)
+            .take_while(|(_, self_count, _)| self_count > &0)
+            .filter_map(|(k, self_count, other_count)| {
+                if other_count == 0 {
+                    Some((k, self_count))
+                } else {
+                    None
+                }
+            })
     }
 
     /// Removes a value that is equal to the given one, and returns it if it was the last.
@@ -1144,6 +1228,9 @@ impl<'a, T> Iterator for Drain<'a, T> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+    use std::iter::FromIterator;
+
     use super::*;
 
     #[test]
@@ -1255,5 +1342,129 @@ mod tests {
         }
 
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_outer_join_order_with_disjoint_sets() {
+        do_test_outer_join_order(&[1, 2, 3], &[4, 5, 6]);
+        do_test_outer_join_order(&[1, 2, 2, 3], &[4, 4, 5, 6]);
+    }
+
+    #[test]
+    fn test_outer_join_order_with_overlap() {
+        do_test_outer_join_order(&[1, 2, 3], &[2, 3, 4]);
+        do_test_outer_join_order(&[1, 1, 2, 3], &[2, 3, 3, 3, 4]);
+    }
+
+    fn do_test_outer_join_order(
+        this: &[usize],
+        other: &[usize],
+    ) {
+        let this_hashbag: HashBag<usize> = this.iter().cloned().collect();
+        let other_hashbag: HashBag<usize> = other.iter().cloned().collect();
+
+        // Assert that the first yielded key that's exclusive to other (i.e. self_count is 0)
+        // comes AFTER all of the keys in self
+        let min_other_exclusive_key_idx = this_hashbag
+            .outer_join(&other_hashbag)
+            .enumerate()
+            .find(|(_, (_, self_count, _))| self_count == &0)
+            .map(|(idx, _)| idx);
+        // If no such element exists that means all of the keys in other
+        // are in self so there's no thing to assert.
+        if let Some(idx) = min_other_exclusive_key_idx {
+            assert_eq!(idx, this_hashbag.set_len());
+        }
+    }
+
+    #[test]
+    fn test_outer_join_with_empty_self() {
+        do_test_outer_join(&[], &[1, 2, 2, 3], &[(&1, 0, 1), (&2, 0, 2), (&3, 0, 1)]);
+    }
+
+    #[test]
+    fn test_outer_join_with_empty_other() {
+        do_test_outer_join(&[1, 2, 2, 3], &[], &[(&1, 1, 0), (&2, 2, 0), (&3, 1, 0)]);
+    }
+
+    #[test]
+    fn test_outer_join_with_overlap() {
+        do_test_outer_join(
+            &[1, 2, 2, 3, 3],
+            &[3, 4, 5, 5],
+            &[(&1, 1, 0), (&2, 2, 0), (&3, 2, 1), (&4, 0, 1), (&5, 0, 2)],
+        );
+    }
+
+    fn do_test_outer_join(
+        this: &[usize],
+        other: &[usize],
+        expected_entries: &[(&usize, usize, usize)],
+    ) {
+        let this_hashbag: HashBag<_> = this.iter().cloned().collect();
+        let other_hashbag: HashBag<_> = other.iter().cloned().collect();
+        let expected: HashSet<_> = HashSet::from_iter(expected_entries.iter().cloned());
+        let actual: HashSet<_> = this_hashbag.outer_join(&other_hashbag).collect();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_not_in_with_empty_self() {
+        do_test_not_in(&[], &[1, 2, 3, 3], &[]);
+    }
+
+    #[test]
+    fn test_not_in_with_empty_other() {
+        do_test_not_in(&[1, 2, 3, 3], &[], &[1, 2, 3, 3]);
+    }
+
+    #[test]
+    fn test_not_in_with_overlap() {
+        do_test_not_in(&[1, 2, 3, 3], &[2, 4], &[1, 3, 3]);
+    }
+
+    fn do_test_not_in(this: &[usize], other: &[usize], expected_entries: &[usize]) {
+        let this_hashbag: HashBag<_> = this.iter().cloned().collect();
+        let other_hashbag: HashBag<_> = other.iter().cloned().collect();
+        let expected: HashBag<_> = expected_entries.iter().cloned().collect();
+        let actual: HashBag<_> =
+            this_hashbag
+                .not_in(&other_hashbag)
+                .fold(HashBag::new(), |mut bag, (k, count)| {
+                    bag.insert_many(*k, count);
+                    bag
+                });
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_signed_difference_with_empty_self() {
+        do_test_signed_difference(&[], &[1, 2, 2, 3], &[(&1, -1), (&2, -2), (&3, -1)]);
+    }
+
+    #[test]
+    fn test_signed_difference_with_empty_other() {
+        do_test_signed_difference(&[1, 2, 2, 3], &[], &[(&1, 1), (&2, 2), (&3, 1)]);
+    }
+
+    #[test]
+    fn test_signed_difference_with_overlap() {
+        do_test_signed_difference(
+            &[1, 2, 2, 3, 3],
+            &[3, 4, 5, 5],
+            &[(&1, 1), (&2, 2), (&3, 1), (&4, -1), (&5, -2)],
+        );
+    }
+
+    fn do_test_signed_difference(
+        this: &[usize],
+        other: &[usize],
+        expected_entries: &[(&usize, isize)],
+    ) {
+        let this_hashbag: HashBag<_> = this.iter().cloned().collect();
+        let other_hashbag: HashBag<_> = other.iter().cloned().collect();
+        let expected: HashSet<_> = HashSet::from_iter(expected_entries.iter().cloned());
+        let actual: HashSet<_> = this_hashbag.signed_difference(&other_hashbag).collect();
+        assert_eq!(expected, actual);
     }
 }
