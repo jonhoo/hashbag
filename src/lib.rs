@@ -1392,4 +1392,35 @@ mod tests {
                 });
         assert_eq!(expected, actual);
     }
+
+    #[test]
+    fn test_signed_difference_with_empty_self() {
+        do_test_signed_difference(&[], &[1, 2, 2, 3], &[(&1, -1), (&2, -2), (&3, -1)]);
+    }
+
+    #[test]
+    fn test_signed_difference_with_empty_other() {
+        do_test_signed_difference(&[1, 2, 2, 3], &[], &[(&1, 1), (&2, 2), (&3, 1)]);
+    }
+
+    #[test]
+    fn test_signed_difference_with_overlap() {
+        do_test_signed_difference(
+            &[1, 2, 2, 3, 3],
+            &[3, 4, 5, 5],
+            &[(&1, 1), (&2, 2), (&3, 1), (&4, -1), (&5, -2)],
+        );
+    }
+
+    fn do_test_signed_difference(
+        this: &[usize],
+        other: &[usize],
+        expected_entries: &[(&usize, isize)],
+    ) {
+        let this_hashbag: HashBag<_> = this.iter().cloned().collect();
+        let other_hashbag: HashBag<_> = other.iter().cloned().collect();
+        let expected: HashSet<_> = HashSet::from_iter(expected_entries.iter().cloned());
+        let actual: HashSet<_> = this_hashbag.signed_difference(&other_hashbag).collect();
+        assert_eq!(expected, actual);
+    }
 }
