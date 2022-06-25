@@ -727,7 +727,11 @@ where
             .map(move |(x, &self_count)| (x, self_count, other.contains(x)))
             .chain(other.items.iter().filter_map(move |(x, &other_count)| {
                 let self_count = self.contains(x);
-                (self_count == 0).then(|| (x, self_count, other_count))
+                if self_count == 0 {
+                    Some((x, self_count, other_count))
+                } else {
+                    None
+                }
             }))
     }
 
@@ -804,7 +808,13 @@ where
     pub fn not_in<'a>(&'a self, other: &'a HashBag<T, S>) -> impl Iterator<Item = (&'a T, usize)> {
         self.outer_join(other)
             .take_while(|(_, self_count, _)| self_count > &0)
-            .filter_map(|(k, self_count, other_count)| (other_count == 0).then(|| (k, self_count)))
+            .filter_map(|(k, self_count, other_count)| {
+                if other_count == 0 {
+                    Some((k, self_count))
+                } else {
+                    None
+                }
+            })
     }
 
     /// Removes a value that is equal to the given one, and returns it if it was the last.
