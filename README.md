@@ -1,7 +1,6 @@
 [![Crates.io](https://img.shields.io/crates/v/hashbag.svg)](https://crates.io/crates/hashbag)
 [![Documentation](https://docs.rs/hashbag/badge.svg)](https://docs.rs/hashbag/)
-[![Build Status](https://dev.azure.com/jonhoo/jonhoo/_apis/build/status/hashbag?branchName=master)](https://dev.azure.com/jonhoo/jonhoo/_build/latest?definitionId=17&branchName=master)
-[![Codecov](https://codecov.io/github/jonhoo/hashbag/coverage.svg?branch=master)](https://codecov.io/gh/jonhoo/hashbag)
+[![Codecov](https://codecov.io/github/jonhoo/hashbag/coverage.svg?branch=main)](https://codecov.io/gh/jonhoo/hashbag)
 [![Dependency status](https://deps.rs/repo/github/jonhoo/hashbag/status.svg)](https://deps.rs/repo/github/jonhoo/hashbag)
 
 An unordered multiset/bag implementation backed by `HashMap`.
