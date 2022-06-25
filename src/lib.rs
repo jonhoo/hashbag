@@ -754,6 +754,7 @@ where
         other: &'a HashBag<T, S>,
     ) -> impl Iterator<Item = (&'a T, usize)> {
         self.outer_join(&other)
+            .take_while(|(_, self_count, _)| self_count > &0)
             .filter(|(_x, self_count, other_count)| self_count > other_count)
             .map(|(x, self_count, other_count)| (x, self_count - other_count))
     }
