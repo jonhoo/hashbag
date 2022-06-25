@@ -1338,28 +1338,30 @@ mod tests {
 
     #[test]
     fn test_not_in_with_empty_self() {
-        let this: HashBag<_> = HashBag::new();
-        let other: HashBag<_> = [1, 2, 3, 3].iter().cloned().collect();
-        let expected = HashSet::new();
-        let actual: HashSet<_> = this.not_in(&other).collect();
-        assert_eq!(expected, actual);
+        do_test_not_in(&[], &[1, 2, 3, 3], &[]);
     }
 
     #[test]
     fn test_not_in_with_empty_other() {
-        let this: HashBag<_> = [1, 2, 3, 3].iter().cloned().collect();
-        let other: HashBag<_> = HashBag::new();
-        let expected: HashSet<_> = HashSet::from_iter([(&1, 1), (&2, 1), (&3, 2)]);
-        let actual: HashSet<_> = this.not_in(&other).collect();
-        assert_eq!(expected, actual);
+        do_test_not_in(&[1, 2, 3, 3], &[], &[1, 2, 3, 3]);
     }
 
     #[test]
     fn test_not_in_with_overlap() {
-        let this: HashBag<_> = [1, 2, 3, 3].iter().cloned().collect();
-        let other: HashBag<_> = [2, 4].iter().cloned().collect();
-        let expected: HashSet<_> = HashSet::from_iter([(&1, 1), (&3, 2)]);
-        let actual: HashSet<_> = this.not_in(&other).collect();
+        do_test_not_in(&[1, 2, 3, 3], &[2, 4], &[1, 3, 3]);
+    }
+
+    fn do_test_not_in(this: &[usize], other: &[usize], expected_entries: &[usize]) {
+        let this_hashbag: HashBag<_> = this.iter().cloned().collect();
+        let other_hashbag: HashBag<_> = other.iter().cloned().collect();
+        let expected: HashBag<_> = expected_entries.iter().cloned().collect();
+        let actual: HashBag<_> =
+            this_hashbag
+                .not_in(&other_hashbag)
+                .fold(HashBag::new(), |mut bag, (k, count)| {
+                    bag.insert_many(*k, count);
+                    bag
+                });
         assert_eq!(expected, actual);
     }
 }
