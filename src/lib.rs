@@ -702,6 +702,35 @@ where
         }
     }
 
+    /// Returns an iterator over all of the elements that are in `self` or `other`.
+    /// The iterator also yields the respective counts in `self` and `other` in that order.
+    /// Each distinct element is yielded only once.
+    ///
+    /// # Examples
+    /// ```
+    /// use hashbag::HashBag;
+    /// use std::collections::HashSet;
+    /// use std::iter::FromIterator;
+    ///
+    /// let a: HashBag<_> = "hash".chars().collect();
+    /// let b: HashBag<_> = "math".chars().collect();
+    /// let expected: HashSet<_> = HashSet::from_iter([(&'h', 2, 1), (&'a', 1, 1), (&'s', 1, 0), (&'m', 0, 1), (&'t', 0, 1)]);
+    /// let actual: HashSet<_> = a.outer_join(&b).collect();
+    /// assert_eq!(expected, actual);
+    /// ```
+    pub fn outer_join<'a>(
+        &'a self,
+        other: &'a HashBag<T, S>,
+    ) -> impl Iterator<Item = (&'a T, usize, usize)> {
+        self.items
+            .iter()
+            .map(move |(x, &self_count)| (x, self_count, other.contains(x)))
+            .chain(other.items.iter().filter_map(move |(x, &other_count)| {
+                let self_count = self.contains(x);
+                (self_count == 0).then(|| (x, self_count, other_count))
+            }))
+    }
+
     /// Returns an iterator over all the elements that are in `self` with a
     /// higher occurrence count than in `other`. The count in the returned
     /// iterator represents how many more of a given element are in `self` than
@@ -1144,6 +1173,9 @@ impl<'a, T> Iterator for Drain<'a, T> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+    use std::iter::FromIterator;
+
     use super::*;
 
     #[test]
@@ -1255,5 +1287,36 @@ mod tests {
         }
 
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_outer_join_with_empty_self() {
+        do_test_outer_join(&[], &[1, 2, 2, 3], &[(&1, 0, 1), (&2, 0, 2), (&3, 0, 1)]);
+    }
+
+    #[test]
+    fn test_outer_join_with_empty_other() {
+        do_test_outer_join(&[], &[1, 2, 2, 3], &[(&1, 0, 1), (&2, 0, 2), (&3, 0, 1)]);
+    }
+
+    #[test]
+    fn test_outer_join_with_overlap() {
+        do_test_outer_join(
+            &[1, 2, 2, 3, 3],
+            &[3, 4, 5, 5],
+            &[(&1, 1, 0), (&2, 2, 0), (&3, 2, 1), (&4, 0, 1), (&5, 0, 2)],
+        );
+    }
+
+    fn do_test_outer_join(
+        this: &[usize],
+        other: &[usize],
+        expected_entries: &[(&usize, usize, usize)],
+    ) {
+        let this_hashbag: HashBag<_> = this.iter().cloned().collect();
+        let other_hashbag: HashBag<_> = other.iter().cloned().collect();
+        let expected: HashSet<_> = HashSet::from_iter(expected_entries.iter().cloned());
+        let actual: HashSet<_> = this_hashbag.outer_join(&other_hashbag).collect();
+        assert_eq!(expected, actual);
     }
 }
