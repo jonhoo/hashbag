@@ -1356,10 +1356,7 @@ mod tests {
         do_test_outer_join_order(&[1, 1, 2, 3], &[2, 3, 3, 3, 4]);
     }
 
-    fn do_test_outer_join_order(
-        this: &[usize],
-        other: &[usize],
-    ) {
+    fn do_test_outer_join_order(this: &[usize], other: &[usize]) {
         let this_hashbag: HashBag<usize> = this.iter().cloned().collect();
         let other_hashbag: HashBag<usize> = other.iter().cloned().collect();
 
