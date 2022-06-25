@@ -759,6 +759,26 @@ where
             .map(|(x, self_count, other_count)| (x, self_count - other_count))
     }
 
+    /// Returns an iterator over all of the elements that are in `self` but not in `other`.
+    ///
+    /// # Examples
+    /// ```
+    /// use hashbag::HashBag;
+    /// use std::collections::HashSet;
+    /// use std::iter::FromIterator;
+    ///
+    /// let a: HashBag<_> = [1, 2, 3, 3].iter().cloned().collect();
+    /// let b: HashBag<_> = [2, 3].iter().cloned().collect();
+    /// let expected: HashSet<_> = HashSet::from_iter([(&1, 1)]);
+    /// let actual: HashSet<_> = a.not_in(&b).collect();
+    /// assert_eq!(expected, actual);
+    /// ```
+    pub fn not_in<'a>(&'a self, other: &'a HashBag<T, S>) -> impl Iterator<Item = (&'a T, usize)> {
+        self.outer_join(&other)
+            .take_while(|(_, self_count, _)| self_count > &0)
+            .filter_map(|(k, self_count, other_count)| (other_count == 0).then(|| (k, self_count)))
+    }
+
     /// Removes a value that is equal to the given one, and returns it if it was the last.
     ///
     /// If the matching value is not the last, a reference to the remainder is given, along with
