@@ -704,6 +704,7 @@ where
 
     /// Returns an iterator over all of the elements that are in `self` or `other`.
     /// The iterator also yields the respective counts in `self` and `other` in that order.
+    /// Elements that are in `self` are yielded before any elements that are exclusively in `other`.
     /// Each distinct element is yielded only once.
     ///
     /// # Examples
@@ -1341,6 +1342,39 @@ mod tests {
         }
 
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_outer_join_order_with_disjoint_sets() {
+        do_test_outer_join_order(&[1, 2, 3], &[4, 5, 6]);
+        do_test_outer_join_order(&[1, 2, 2, 3], &[4, 4, 5, 6]);
+    }
+
+    #[test]
+    fn test_outer_join_order_with_overlap() {
+        do_test_outer_join_order(&[1, 2, 3], &[2, 3, 4]);
+        do_test_outer_join_order(&[1, 1, 2, 3], &[2, 3, 3, 3, 4]);
+    }
+
+    fn do_test_outer_join_order(
+        this: &[usize],
+        other: &[usize],
+    ) {
+        let this_hashbag: HashBag<usize> = this.iter().cloned().collect();
+        let other_hashbag: HashBag<usize> = other.iter().cloned().collect();
+
+        // Assert that the first yielded key that's exclusive to other (i.e. self_count is 0)
+        // comes AFTER all of the keys in self
+        let min_other_exclusive_key_idx = this_hashbag
+            .outer_join(&other_hashbag)
+            .enumerate()
+            .find(|(_, (_, self_count, _))| self_count == &0)
+            .map(|(idx, _)| idx);
+        // If no such element exists that means all of the keys in other
+        // are in self so there's no thing to assert.
+        if let Some(idx) = min_other_exclusive_key_idx {
+            assert_eq!(idx, this_hashbag.set_len());
+        }
     }
 
     #[test]
