@@ -753,14 +753,9 @@ where
         &'a self,
         other: &'a HashBag<T, S>,
     ) -> impl Iterator<Item = (&'a T, usize)> {
-        self.items.iter().filter_map(move |(x, &self_count)| {
-            let other_count = other.contains(x);
-            if self_count > other_count {
-                Some((x, self_count - other_count))
-            } else {
-                None
-            }
-        })
+        self.outer_join(&other)
+            .filter(|(_x, self_count, other_count)| self_count > other_count)
+            .map(|(x, self_count, other_count)| (x, self_count - other_count))
     }
 
     /// Removes a value that is equal to the given one, and returns it if it was the last.
