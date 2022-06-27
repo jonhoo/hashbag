@@ -719,10 +719,13 @@ where
     /// let actual: HashSet<_> = a.outer_join(&b).collect();
     /// assert_eq!(expected, actual);
     /// ```
-    pub fn outer_join<'a>(
+    pub fn outer_join<'a, OtherS>(
         &'a self,
-        other: &'a HashBag<T, S>,
-    ) -> impl Iterator<Item = (&'a T, usize, usize)> {
+        other: &'a HashBag<T, OtherS>,
+    ) -> impl Iterator<Item = (&'a T, usize, usize)>
+    where
+        OtherS: BuildHasher,
+    {
         self.items
             .iter()
             .map(move |(x, &self_count)| (x, self_count, other.contains(x)))
@@ -754,10 +757,13 @@ where
     /// let actual: HashSet<_> = a.difference(&b).collect();
     /// assert_eq!(expected, actual);
     /// ```
-    pub fn difference<'a>(
+    pub fn difference<'a, OtherS>(
         &'a self,
-        other: &'a HashBag<T, S>,
-    ) -> impl Iterator<Item = (&'a T, usize)> {
+        other: &'a HashBag<T, OtherS>,
+    ) -> impl Iterator<Item = (&'a T, usize)>
+    where
+        OtherS: BuildHasher,
+    {
         self.outer_join(other)
             .take_while(|(_, self_count, _)| self_count > &0)
             .filter(|(_x, self_count, other_count)| self_count > other_count)
@@ -784,10 +790,13 @@ where
     /// let actual: HashSet<_> = a.signed_difference(&b).collect();
     /// assert_eq!(expected, actual);
     /// ```
-    pub fn signed_difference<'a>(
+    pub fn signed_difference<'a, OtherS>(
         &'a self,
-        other: &'a HashBag<T, S>,
-    ) -> impl Iterator<Item = (&'a T, isize)> {
+        other: &'a HashBag<T, OtherS>,
+    ) -> impl Iterator<Item = (&'a T, isize)>
+    where
+        OtherS: BuildHasher,
+    {
         self.outer_join(other)
             .map(|(x, self_count, other_count)| (x, self_count as isize - other_count as isize))
     }
@@ -806,7 +815,13 @@ where
     /// let actual: HashSet<_> = a.not_in(&b).collect();
     /// assert_eq!(expected, actual);
     /// ```
-    pub fn not_in<'a>(&'a self, other: &'a HashBag<T, S>) -> impl Iterator<Item = (&'a T, usize)> {
+    pub fn not_in<'a, OtherS>(
+        &'a self,
+        other: &'a HashBag<T, OtherS>,
+    ) -> impl Iterator<Item = (&'a T, usize)>
+    where
+        OtherS: BuildHasher,
+    {
         self.outer_join(other)
             .take_while(|(_, self_count, _)| self_count > &0)
             .filter_map(|(k, self_count, other_count)| {
