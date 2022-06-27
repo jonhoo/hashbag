@@ -805,7 +805,7 @@ where
             if self_count >= other_count {
                 let diff = self_count - other_count;
                 let diff = if diff >= std::isize::MAX as usize {
-                    isize::MAX
+                    std::isize::MAX
                 } else {
                     diff as isize
                 };
@@ -813,7 +813,7 @@ where
             } else {
                 let diff = other_count - self_count;
                 let diff = if diff >= std::isize::MIN as usize {
-                    isize::MIN
+                    std::isize::MIN
                 } else {
                     -(diff as isize)
                 };
@@ -1494,7 +1494,7 @@ mod tests {
         let mut this_hashbag = HashBag::new();
         let mut other_hashbag = HashBag::new();
 
-        let large_count = isize::MAX as usize;
+        let large_count = std::isize::MAX as usize;
         this_hashbag.insert_many(1, large_count + 1000);
         other_hashbag.insert_many(1, large_count);
 
@@ -1513,15 +1513,15 @@ mod tests {
         let mut this_hashbag = HashBag::new();
         let empty_hashbag = HashBag::new();
 
-        let large_count = isize::MAX as usize;
+        let large_count = std::isize::MAX as usize;
         this_hashbag.insert_many(1, large_count + 1000);
 
-        let expected: HashSet<_> = HashSet::from_iter([(&1, isize::MAX)].iter().cloned());
+        let expected: HashSet<_> = HashSet::from_iter([(&1, std::isize::MAX)].iter().cloned());
         let actual: HashSet<_> = this_hashbag.signed_difference(&empty_hashbag).collect();
         assert_eq!(expected, actual);
 
         // and in reverse:
-        let expected: HashSet<_> = HashSet::from_iter([(&1, isize::MIN)].iter().cloned());
+        let expected: HashSet<_> = HashSet::from_iter([(&1, std::isize::MIN)].iter().cloned());
         let actual: HashSet<_> = empty_hashbag.signed_difference(&this_hashbag).collect();
         assert_eq!(expected, actual);
     }
