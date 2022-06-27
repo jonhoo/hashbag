@@ -1510,6 +1510,43 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_signed_difference_with_both_large() {
+        let mut this_hashbag = HashBag::new();
+        let mut other_hashbag = HashBag::new();
+
+        let large_count = isize::MAX as usize;
+        this_hashbag.insert_many(1, large_count + 1000);
+        other_hashbag.insert_many(1, large_count);
+
+        let expected: HashSet<_> = HashSet::from_iter([(&1, 1000)].iter().cloned());
+        let actual: HashSet<_> = this_hashbag.signed_difference(&other_hashbag).collect();
+        assert_eq!(expected, actual);
+
+        // and in reverse:
+        let expected: HashSet<_> = HashSet::from_iter([(&1, -1000)].iter().cloned());
+        let actual: HashSet<_> = other_hashbag.signed_difference(&this_hashbag).collect();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_signed_difference_too_large_to_hold_clamp() {
+        let mut this_hashbag = HashBag::new();
+        let empty_hashbag = HashBag::new();
+
+        let large_count = isize::MAX as usize;
+        this_hashbag.insert_many(1, large_count + 1000);
+
+        let expected: HashSet<_> = HashSet::from_iter([(&1, isize::MAX)].iter().cloned());
+        let actual: HashSet<_> = this_hashbag.signed_difference(&empty_hashbag).collect();
+        assert_eq!(expected, actual);
+
+        // and in reverse:
+        let expected: HashSet<_> = HashSet::from_iter([(&1, isize::MIN)].iter().cloned());
+        let actual: HashSet<_> = empty_hashbag.signed_difference(&this_hashbag).collect();
+        assert_eq!(expected, actual);
+    }
+
     fn do_test_signed_difference(
         this: &[usize],
         other: &[usize],
