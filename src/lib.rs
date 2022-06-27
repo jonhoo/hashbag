@@ -805,7 +805,7 @@ where
             .map(|(x, self_count, other_count)| {
                 if self_count >= other_count {
                     let diff = self_count - other_count;
-                    let diff = if diff >= isize::MAX as usize {
+                    let diff = if diff >= std::isize::MAX as usize {
                         isize::MAX
                     } else {
                         diff as isize
@@ -813,7 +813,7 @@ where
                     (x, diff)
                 } else {
                     let diff = other_count - self_count;
-                    let diff = if diff >= isize::MIN as usize {
+                    let diff = if diff >= std::isize::MIN as usize {
                         isize::MIN
                     } else {
                         -(diff as isize)
