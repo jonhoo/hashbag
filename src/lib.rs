@@ -794,26 +794,6 @@ where
     /// let actual: HashSet<_> = a.signed_difference(&b).collect();
     /// assert_eq!(expected, actual);
     /// ```
-    ///
-    /// ```
-    /// # use hashbag::HashBag;
-    /// # use std::collections::HashSet;
-    /// # use std::iter::FromIterator;
-    /// let mut a: HashBag<_> = HashBag::new();
-    /// let mut b: HashBag<_> = HashBag::new();
-    /// let large_count = isize::MIN as usize;
-    /// a.insert_many(1, large_count);
-    /// b.insert_many(1, 3);
-    /// let expected: HashSet<_> = HashSet::from_iter([(&1, (large_count - 3) as isize)]);
-    /// let actual: HashSet<_> = a.signed_difference(&b).collect();
-    /// assert_eq!(expected, actual);
-    ///
-    /// // Add more elements to `a`, the difference won't fit in an `isize`.
-    /// a.insert_many(1, 1000);
-    /// let expected: HashSet<_> = HashSet::from_iter([(&1, isize::MAX)]);
-    /// let actual: HashSet<_> = a.signed_difference(&b).collect();
-    /// assert_eq!(expected, actual);
-    /// ```
     pub fn signed_difference<'a, OtherS>(
         &'a self,
         other: &'a HashBag<T, OtherS>,
