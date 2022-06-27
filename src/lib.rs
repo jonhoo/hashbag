@@ -801,26 +801,25 @@ where
     where
         OtherS: BuildHasher,
     {
-        self.outer_join(other)
-            .map(|(x, self_count, other_count)| {
-                if self_count >= other_count {
-                    let diff = self_count - other_count;
-                    let diff = if diff >= std::isize::MAX as usize {
-                        isize::MAX
-                    } else {
-                        diff as isize
-                    };
-                    (x, diff)
+        self.outer_join(other).map(|(x, self_count, other_count)| {
+            if self_count >= other_count {
+                let diff = self_count - other_count;
+                let diff = if diff >= std::isize::MAX as usize {
+                    isize::MAX
                 } else {
-                    let diff = other_count - self_count;
-                    let diff = if diff >= std::isize::MIN as usize {
-                        isize::MIN
-                    } else {
-                        -(diff as isize)
-                    };
-                    (x, diff)
-                }
-            })
+                    diff as isize
+                };
+                (x, diff)
+            } else {
+                let diff = other_count - self_count;
+                let diff = if diff >= std::isize::MIN as usize {
+                    isize::MIN
+                } else {
+                    -(diff as isize)
+                };
+                (x, diff)
+            }
+        })
     }
 
     /// Returns an iterator over all of the elements that are in `self` but not in `other`.
