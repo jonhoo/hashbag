@@ -777,6 +777,10 @@ where
     /// this iterator yields all elements that are in either of the `HashBag`s. Elements that have a higher
     /// count in `other` than in self (including elements that are not in `self`) will have a negative count.
     ///
+    /// If the difference can be represented as an `isize`, then it will be. Otherwise, the difference will be
+    /// clamped to `isize::MIN`/`isize::MAX`, thus keeping the sign of the difference, and as much of the
+    /// magnitude as possible.
+    ///
     /// # Examples
     ///
     /// ```
@@ -790,6 +794,26 @@ where
     /// let actual: HashSet<_> = a.signed_difference(&b).collect();
     /// assert_eq!(expected, actual);
     /// ```
+    ///
+    /// ```
+    /// # use hashbag::HashBag;
+    /// # use std::collections::HashSet;
+    /// # use std::iter::FromIterator;
+    /// let mut a: HashBag<_> = HashBag::new();
+    /// let mut b: HashBag<_> = HashBag::new();
+    /// let large_count = isize::MIN as usize;
+    /// a.insert_many(1, large_count);
+    /// b.insert_many(1, 3);
+    /// let expected: HashSet<_> = HashSet::from_iter([(&1, (large_count - 3) as isize)]);
+    /// let actual: HashSet<_> = a.signed_difference(&b).collect();
+    /// assert_eq!(expected, actual);
+    ///
+    /// // Add more elements to `a`, the difference won't fit in an `isize`.
+    /// a.insert_many(1, 1000);
+    /// let expected: HashSet<_> = HashSet::from_iter([(&1, isize::MAX)]);
+    /// let actual: HashSet<_> = a.signed_difference(&b).collect();
+    /// assert_eq!(expected, actual);
+    /// ```
     pub fn signed_difference<'a, OtherS>(
         &'a self,
         other: &'a HashBag<T, OtherS>,
@@ -798,7 +822,25 @@ where
         OtherS: BuildHasher,
     {
         self.outer_join(other)
-            .map(|(x, self_count, other_count)| (x, self_count as isize - other_count as isize))
+            .map(|(x, self_count, other_count)| {
+                if self_count >= other_count {
+                    let diff = self_count - other_count;
+                    let diff = if diff >= isize::MAX as usize {
+                        isize::MAX
+                    } else {
+                        diff as isize
+                    };
+                    (x, diff)
+                } else {
+                    let diff = other_count - self_count;
+                    let diff = if diff >= isize::MIN as usize {
+                        isize::MIN
+                    } else {
+                        -(diff as isize)
+                    };
+                    (x, diff)
+                }
+            })
     }
 
     /// Returns an iterator over all of the elements that are in `self` but not in `other`.
