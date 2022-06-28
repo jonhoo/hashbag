@@ -803,15 +803,14 @@ where
         OtherS: BuildHasher,
     {
         self.outer_join(other).map(|(x, self_count, other_count)| {
-            if self_count >= other_count {
-                let diff = isize::try_from(self_count - other_count).unwrap_or(std::isize::MAX);
-                (x, diff)
+            let diff = if self_count >= other_count {
+                isize::try_from(self_count - other_count).unwrap_or(std::isize::MAX)
             } else {
-                let diff = isize::try_from(other_count - self_count)
+                isize::try_from(other_count - self_count)
                     .map(|x| -x)
-                    .unwrap_or(std::isize::MIN);
-                (x, diff)
-            }
+                    .unwrap_or(std::isize::MIN)
+            };
+            (x, diff)
         })
     }
 
