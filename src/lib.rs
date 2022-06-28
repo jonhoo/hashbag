@@ -620,6 +620,9 @@ where
     /// ```
     #[inline]
     pub fn insert_many(&mut self, value: T, count: usize) -> usize {
+        if count == 0 {
+            return self.contains(&value);
+        }
         self.count += count;
         let n = self.items.entry(value).or_insert(0);
         let was_there = *n;
@@ -1030,7 +1033,9 @@ where
     fn extend<I: IntoIterator<Item = (T, usize)>>(&mut self, iter: I) {
         for (e, n) in iter {
             self.count += n;
-            *self.items.entry(e).or_insert(0) += n;
+            if n != 0 {
+                *self.items.entry(e).or_insert(0) += n;
+            }
         }
     }
 }
@@ -1478,5 +1483,18 @@ mod tests {
         let expected: HashSet<_> = HashSet::from_iter(expected_entries.iter().cloned());
         let actual: HashSet<_> = this_hashbag.signed_difference(&other_hashbag).collect();
         assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_no_zeros_counts() {
+        let mut hashbag = HashBag::new();
+        hashbag.insert(100);
+        hashbag.retain(|_, _| 0);
+        hashbag.insert_many(1, 0);
+        hashbag.extend(vec![(2, 0)]);
+        assert_eq!(hashbag.len(), 0);
+        assert_eq!(hashbag.iter().count(), 0);
+        assert_eq!(hashbag.set_len(), 0);
+        assert_eq!(hashbag.set_iter().count(), 0);
     }
 }
