@@ -27,6 +27,7 @@ use std::borrow::Borrow;
 use std::collections::hash_map::RandomState;
 #[cfg(not(feature = "amortize"))]
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::hash::{BuildHasher, Hash};
 
 #[cfg(feature = "serde")]
@@ -803,20 +804,12 @@ where
     {
         self.outer_join(other).map(|(x, self_count, other_count)| {
             if self_count >= other_count {
-                let diff = self_count - other_count;
-                let diff = if diff >= std::isize::MAX as usize {
-                    std::isize::MAX
-                } else {
-                    diff as isize
-                };
+                let diff = isize::try_from(self_count - other_count).unwrap_or(std::isize::MAX);
                 (x, diff)
             } else {
-                let diff = other_count - self_count;
-                let diff = if diff >= std::isize::MIN as usize {
-                    std::isize::MIN
-                } else {
-                    -(diff as isize)
-                };
+                let diff = isize::try_from(other_count - self_count)
+                    .map(|x| -x)
+                    .unwrap_or(std::isize::MIN);
                 (x, diff)
             }
         })
