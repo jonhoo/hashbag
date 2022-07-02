@@ -27,6 +27,7 @@ use std::borrow::Borrow;
 use std::collections::hash_map::RandomState;
 #[cfg(not(feature = "amortize"))]
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::hash::{BuildHasher, Hash};
 
 #[cfg(feature = "serde")]
@@ -780,6 +781,10 @@ where
     /// this iterator yields all elements that are in either of the `HashBag`s. Elements that have a higher
     /// count in `other` than in self (including elements that are not in `self`) will have a negative count.
     ///
+    /// If the difference can be represented as an `isize`, then it will be. Otherwise, the difference will be
+    /// clamped to `isize::MIN`/`isize::MAX`, thus keeping the sign of the difference, and as much of the
+    /// magnitude as possible.
+    ///
     /// # Examples
     ///
     /// ```
@@ -800,8 +805,16 @@ where
     where
         OtherS: BuildHasher,
     {
-        self.outer_join(other)
-            .map(|(x, self_count, other_count)| (x, self_count as isize - other_count as isize))
+        self.outer_join(other).map(|(x, self_count, other_count)| {
+            let diff = if self_count >= other_count {
+                isize::try_from(self_count - other_count).unwrap_or(std::isize::MAX)
+            } else {
+                isize::try_from(other_count - self_count)
+                    .map(|x| -x)
+                    .unwrap_or(std::isize::MIN)
+            };
+            (x, diff)
+        })
     }
 
     /// Returns an iterator over all of the elements that are in `self` but not in `other`.
@@ -1471,6 +1484,43 @@ mod tests {
             &[3, 4, 5, 5],
             &[(&1, 1), (&2, 2), (&3, 1), (&4, -1), (&5, -2)],
         );
+    }
+
+    #[test]
+    fn test_signed_difference_with_both_large() {
+        let mut this_hashbag = HashBag::new();
+        let mut other_hashbag = HashBag::new();
+
+        let large_count = std::isize::MAX as usize;
+        this_hashbag.insert_many(1, large_count + 1000);
+        other_hashbag.insert_many(1, large_count);
+
+        let expected: HashSet<_> = HashSet::from_iter([(&1, 1000)].iter().cloned());
+        let actual: HashSet<_> = this_hashbag.signed_difference(&other_hashbag).collect();
+        assert_eq!(expected, actual);
+
+        // and in reverse:
+        let expected: HashSet<_> = HashSet::from_iter([(&1, -1000)].iter().cloned());
+        let actual: HashSet<_> = other_hashbag.signed_difference(&this_hashbag).collect();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_signed_difference_too_large_to_hold_clamp() {
+        let mut this_hashbag = HashBag::new();
+        let empty_hashbag = HashBag::new();
+
+        let large_count = std::isize::MAX as usize;
+        this_hashbag.insert_many(1, large_count + 1000);
+
+        let expected: HashSet<_> = HashSet::from_iter([(&1, std::isize::MAX)].iter().cloned());
+        let actual: HashSet<_> = this_hashbag.signed_difference(&empty_hashbag).collect();
+        assert_eq!(expected, actual);
+
+        // and in reverse:
+        let expected: HashSet<_> = HashSet::from_iter([(&1, std::isize::MIN)].iter().cloned());
+        let actual: HashSet<_> = empty_hashbag.signed_difference(&this_hashbag).collect();
+        assert_eq!(expected, actual);
     }
 
     fn do_test_signed_difference(
