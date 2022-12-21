@@ -580,22 +580,20 @@ where
             .map(|(t, count)| (t, *count))
     }
 
-    /// Returns a reference to the value in the bag, if any, that is equal to the given value,
-    /// along with its number of occurrences.
-    ///
-    /// The value may be any borrowed form of the bag's value type, but
-    /// [`Hash`] and [`Eq`] on the borrowed form *must* match those for
-    /// the value type.
+    /// Gets a given value's corresponding entry in the bag for in-place manipulation.
     ///
     /// # Examples
     ///
     /// ```
     /// use hashbag::HashBag;
     ///
-    /// let bag: HashBag<_> = [1, 2, 3, 3].iter().cloned().collect();
-    /// assert_eq!(bag.get(&2), Some((&2, 1)));
-    /// assert_eq!(bag.get(&3), Some((&3, 2)));
-    /// assert_eq!(bag.get(&4), None);
+    /// let mut bag: HashBag<char> = ['a'].iter().cloned().collect();
+    /// let entry = bag.entry('a').and_modify(|n| *n += 1).or_insert();
+    /// assert_eq!(bag.get(&'a'), Some((&'a', 2)));
+    /// let entry = bag.entry('b').and_modify(|n| *n += 1).or_insert();
+    /// assert_eq!(bag.get(&'b'), Some((&'b', 1)));
+    /// let entry = bag.entry('c').and_modify(|n| *n += 1).or_insert_many(7);
+    /// assert_eq!(bag.get(&'c'), Some((&'c', 7)));
     /// ```
     #[inline]
     pub fn entry(&mut self, value: T) -> Entry<'_, T, S> {
@@ -1196,7 +1194,10 @@ impl<T, S> IntoIterator for HashBag<T, S> {
 #[cfg(feature = "amortize")]
 type EntryInner<'a, T, S> = (griddle::hash_map::Entry<'a, T, usize, S>, PhantomData<S>);
 #[cfg(not(feature = "amortize"))]
-type EntryInner<'a, T, S> = (std::collections::hash_map::Entry<'a, T, usize>, PhantomData<S>);
+type EntryInner<'a, T, S> = (
+    std::collections::hash_map::Entry<'a, T, usize>,
+    PhantomData<S>,
+);
 
 #[derive(Debug)]
 /// A view into a single entry in the bag, which may either be vacant or occupied.
@@ -1204,33 +1205,34 @@ type EntryInner<'a, T, S> = (std::collections::hash_map::Entry<'a, T, usize>, Ph
 pub struct Entry<'a, T, S>(EntryInner<'a, T, S>);
 
 impl<'a, T, S> Entry<'a, T, S>
-where 
+where
     T: Hash + Eq,
-    S: BuildHasher
+    S: BuildHasher,
 {
     /// Provides in-place mutable access to an occupied entry before potential inserts into the
     /// map.
     pub fn and_modify<F>(self, f: F) -> Self
-        where F: FnOnce(&mut usize),
+    where
+        F: FnOnce(&mut usize),
     {
-        Self((self.0.0.and_modify(f), PhantomData))
+        Self((self.0 .0.and_modify(f), PhantomData))
     }
-    
+
     /// Returns a reference to the entry's value.
     pub fn value(&self) -> &T {
-        self.0.0.key()
+        self.0 .0.key()
     }
-    
+
     /// Ensures there is at least one instance of the value before returning a mutable reference
     /// to the value's count
     pub fn or_insert(self) -> &'a mut usize {
-        self.0.0.or_insert(1)
+        self.0 .0.or_insert(1)
     }
-    
+
     /// Ensures there is at least `quantity` instances of the value before returning a mutable reference
     /// to the value's count
     pub fn or_insert_many(self, quantity: usize) -> &'a mut usize {
-        self.0.0.or_insert(quantity)
+        self.0 .0.or_insert(quantity)
     }
 }
 
