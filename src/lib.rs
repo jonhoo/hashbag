@@ -706,6 +706,94 @@ where
         }
     }
 
+    /// Removes multiple of a value from the bag. If `quantity` is greater than the number of
+    /// occurences, zero occurances will remain.
+    ///
+    /// The number of occurrences of the value currently in the bag is returned.
+    ///
+    /// The value may be any borrowed form of the bag's value type, but
+    /// [`Hash`] and [`Eq`] on the borrowed form *must* match those for
+    /// the value type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use hashbag::HashBag;
+    ///
+    /// let mut bag = HashBag::new();
+    ///
+    /// bag.insert_many('x', 10);
+    /// assert_eq!(bag.contains(&'x'), 10);
+    /// assert_eq!(bag.remove_many(&'x', 3), 7);
+    /// assert_eq!(bag.contains(&'x'), 7);
+    /// assert_eq!(bag.remove_many(&'x', 10), 0);
+    /// ```
+    #[inline]
+    pub fn remove_many<Q: ?Sized>(&mut self, value: &Q, quantity: usize) -> usize
+    where
+        T: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        match self.items.get_mut(value) {
+            None => 0,
+            Some(n) if *n <= quantity => {
+                self.count -= 1;
+                self.items.remove(value);
+                0
+            }
+            Some(n) => {
+                *n -= quantity;
+                *n
+            }
+        }
+    }
+
+    /// Removes multiple of a value from the bag. If `quantity` is greater than the number of
+    /// occurences, then the value is unchanged
+    ///
+    /// If the value is changed, the number of occurrences of the value currently in the bag is
+    /// returned.
+    ///
+    /// The value may be any borrowed form of the bag's value type, but
+    /// [`Hash`] and [`Eq`] on the borrowed form *must* match those for
+    /// the value type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use hashbag::HashBag;
+    ///
+    /// let mut bag = HashBag::new();
+    ///
+    /// bag.insert_many('x', 10);
+    /// assert_eq!(bag.contains(&'x'), 10);
+    /// assert_eq!(bag.remove_many_checked(&'x', 3), Some(7));
+    /// assert_eq!(bag.contains(&'x'), 7);
+    /// assert_eq!(bag.remove_many_checked(&'x', 10), None);
+    /// assert_eq!(bag.contains(&'x'), 7);
+    /// assert_eq!(bag.remove_many_checked(&'x', 7), Some(0));
+    /// ```
+    #[inline]
+    pub fn remove_many_checked<Q: ?Sized>(&mut self, value: &Q, quantity: usize) -> Option<usize>
+    where
+        T: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        match self.items.get_mut(value) {
+            None => Some(0),
+            Some(n) if *n < quantity => None,
+            Some(n) if *n == quantity => {
+                self.count -= 1;
+                self.items.remove(value);
+                Some(0)
+            }
+            Some(n) => {
+                *n -= quantity;
+                Some(*n)
+            }
+        }
+    }
+
     /// Returns an iterator over all of the elements that are in `self` or `other`.
     /// The iterator also yields the respective counts in `self` and `other` in that order.
     /// Elements that are in `self` are yielded before any elements that are exclusively in `other`.
