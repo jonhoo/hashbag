@@ -597,7 +597,11 @@ where
     /// ```
     #[inline]
     pub fn entry(&mut self, value: T) -> Entry<'_, T, S> {
-        Entry((self.items.entry(value), PhantomData))
+        Entry((
+            ForiegnEntry::new(self.items.entry(value)),
+            &mut self.count,
+            PhantomData,
+        ))
     }
 
     /// Adds a value to the bag.
@@ -1129,6 +1133,18 @@ where
     }
 }
 
+impl<T, S> std::iter::FromIterator<(T, usize)> for HashBag<T, S>
+where
+    T: Eq + Hash,
+    S: BuildHasher + Default,
+{
+    fn from_iter<I: IntoIterator<Item = (T, usize)>>(iter: I) -> Self {
+        let mut bag = Self::default();
+        bag.extend(iter);
+        bag
+    }
+}
+
 impl<'a, T, S> IntoIterator for &'a HashBag<T, S> {
     type Item = &'a T;
     type IntoIter = Iter<'a, T>;
@@ -1147,12 +1163,59 @@ impl<T, S> IntoIterator for HashBag<T, S> {
 
 // ======== entry type
 #[cfg(feature = "amortize")]
-type EntryInner<'a, T, S> = (griddle::hash_map::Entry<'a, T, usize, S>, PhantomData<S>);
+pub(crate) mod entry {
+    use griddle::hash_map::Entry;
+
+    #[derive(Debug)]
+    pub(crate) struct ForiegnEntry<'a, T, S> {
+        pub(crate) entry: Entry<'a, T, usize, S>,
+    }
+
+    impl<'a, T, S> ForiegnEntry<'a, T, S> {
+        pub(crate) fn new(entry: Entry<'a, T, usize, S>) -> Self {
+            Self {
+                entry,
+            }
+        }
+
+        pub(crate) fn get_mut(&mut self) -> Option<&mut usize> {
+            match &mut self.entry {
+                Entry::Occupied(entry) => Some(entry.get_mut()),
+                Entry::Vacant(_) => None,
+            }
+        }
+    }
+}
 #[cfg(not(feature = "amortize"))]
-type EntryInner<'a, T, S> = (
-    std::collections::hash_map::Entry<'a, T, usize>,
-    PhantomData<S>,
-);
+pub(crate) mod entry {
+    use std::{collections::hash_map::Entry, marker::PhantomData};
+
+    #[derive(Debug)]
+    pub(crate) struct ForiegnEntry<'a, T, S> {
+        pub(crate) entry: Entry<'a, T, usize>,
+        data: PhantomData<S>,
+    }
+
+    impl<'a, T, S> ForiegnEntry<'a, T, S> {
+        pub(crate) fn new(entry: Entry<'a, T, usize>) -> Self {
+            Self {
+                entry,
+                data: PhantomData,
+            }
+        }
+
+        pub(crate) fn get_mut(&mut self) -> Option<&mut usize> {
+            match &mut self.entry {
+                Entry::Occupied(entry) => Some(entry.get_mut()),
+                Entry::Vacant(_) => None,
+            }
+        }
+    }
+}
+
+use entry::ForiegnEntry;
+
+type EntryInner<'a, T, S> = (ForiegnEntry<'a, T, S>, &'a mut usize, PhantomData<S>);
 
 #[derive(Debug)]
 /// A view into a single entry in the bag, which may either be vacant or occupied.
@@ -1166,28 +1229,40 @@ where
 {
     /// Provides in-place mutable access to an occupied entry before potential inserts into the
     /// map.
-    pub fn and_modify<F>(self, f: F) -> Self
+    pub fn and_modify<F>(mut self, f: F) -> Self
     where
         F: FnOnce(&mut usize),
     {
-        Self((self.0 .0.and_modify(f), PhantomData))
+        if let Some(n) = self.0 .0.get_mut() {
+            let init = *n;
+            f(n);
+            *self.0 .1 += *n;
+            *self.0 .1 -= init;
+        }
+        Self((self.0 .0, self.0 .1, PhantomData))
     }
 
     /// Returns a reference to the entry's value.
     pub fn value(&self) -> &T {
-        self.0 .0.key()
+        self.0 .0.entry.key()
     }
 
     /// Ensures there is at least one instance of the value before returning a mutable reference
     /// to the value's count
-    pub fn or_insert(self) -> &'a mut usize {
-        self.0 .0.or_insert(1)
+    pub fn or_insert(mut self) -> usize {
+        if self.0 .0.get_mut().is_none() {
+            *self.0 .1 += 1;
+        }
+        *self.0 .0.entry.or_insert(1)
     }
 
     /// Ensures there is at least `quantity` instances of the value before returning a mutable reference
     /// to the value's count
-    pub fn or_insert_many(self, quantity: usize) -> &'a mut usize {
-        self.0 .0.or_insert(quantity)
+    pub fn or_insert_many(mut self, quantity: usize) -> usize {
+        if self.0 .0.get_mut().is_none() {
+            *self.0 .1 += quantity;
+        }
+        *self.0 .0.entry.or_insert(quantity)
     }
 }
 
@@ -1661,7 +1736,6 @@ mod tests {
     #[test]
     fn remove_up_to_affects_count() {
         let mut bag = HashBag::new();
-        // Standard behavior
         bag.insert_many(42, 3);
         assert_eq!(bag.len(), 3);
         assert_eq!(bag.remove_up_to(&0, 1), 0);
@@ -1670,5 +1744,34 @@ mod tests {
         assert_eq!(bag.len(), 2);
         assert_eq!(bag.remove_up_to(&42, 10), 0);
         assert_eq!(bag.len(), 0);
+    }
+
+    #[test]
+    fn entry_inserts_values() {
+        let mut bag = HashBag::new();
+        bag.entry(42);
+        assert_eq!(bag.contains(&42), 0);
+        bag.entry(84).or_insert_many(3);
+        assert_eq!(bag.contains(&84), 3);
+        assert_eq!(bag.len(), 3);
+        bag.entry(84).or_insert_many(2);
+        assert_eq!(bag.len(), 3);
+        bag.entry(84).or_insert();
+        assert_eq!(bag.len(), 3);
+    }
+
+    #[test]
+    fn entry_affects_count() {
+        let mut bag = HashBag::new();
+        bag.entry(42);
+        assert_eq!(bag.len(), 0);
+        bag.entry(42).and_modify(|n| *n += 3);
+        assert_eq!(bag.len(), 0);
+        bag.entry(42).or_insert_many(3);
+        assert_eq!(bag.len(), 3);
+        bag.entry(42).and_modify(|n| *n += 3);
+        assert_eq!(bag.len(), 6);
+        bag.entry(84).or_insert();
+        assert_eq!(bag.len(), 7);
     }
 }
