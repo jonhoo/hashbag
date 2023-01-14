@@ -1173,9 +1173,7 @@ pub(crate) mod entry {
 
     impl<'a, T, S> ForiegnEntry<'a, T, S> {
         pub(crate) fn new(entry: Entry<'a, T, usize, S>) -> Self {
-            Self {
-                entry,
-            }
+            Self { entry }
         }
 
         pub(crate) fn get_mut(&mut self) -> Option<&mut usize> {
