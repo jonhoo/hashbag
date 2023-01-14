@@ -580,6 +580,30 @@ where
             .map(|(t, count)| (t, *count))
     }
 
+    /// Gets a given value's corresponding entry in the bag for in-place manipulation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use hashbag::HashBag;
+    ///
+    /// let mut bag: HashBag<char> = ['a'].iter().cloned().collect();
+    /// let entry = bag.entry('a').and_modify(|n| *n += 1).or_insert();
+    /// assert_eq!(bag.get(&'a'), Some((&'a', 2)));
+    /// let entry = bag.entry('b').and_modify(|n| *n += 1).or_insert();
+    /// assert_eq!(bag.get(&'b'), Some((&'b', 1)));
+    /// let entry = bag.entry('c').and_modify(|n| *n += 1).or_insert_many(7);
+    /// assert_eq!(bag.get(&'c'), Some((&'c', 7)));
+    /// ```
+    #[inline]
+    pub fn entry(&mut self, value: T) -> Entry<'_, T, S> {
+        Entry((
+            ForiegnEntry::new(self.items.entry(value)),
+            &mut self.count,
+            PhantomData,
+        ))
+    }
+
     /// Adds a value to the bag.
     ///
     /// The number of occurrences of the value previously in the bag is returned.
@@ -702,6 +726,49 @@ where
                 self.count -= 1;
                 *n -= 1;
                 *n + 1
+            }
+        }
+    }
+
+    /// Removes multiple of a value from the bag. If `quantity` is greater than the number of
+    /// occurences, zero occurances will remain.
+    ///
+    /// The number of occurrences of the value currently in the bag is returned.
+    ///
+    /// The value may be any borrowed form of the bag's value type, but
+    /// [`Hash`] and [`Eq`] on the borrowed form *must* match those for
+    /// the value type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use hashbag::HashBag;
+    ///
+    /// let mut bag = HashBag::new();
+    ///
+    /// bag.insert_many('x', 10);
+    /// assert_eq!(bag.contains(&'x'), 10);
+    /// assert_eq!(bag.remove_up_to(&'x', 3), 7);
+    /// assert_eq!(bag.contains(&'x'), 7);
+    /// assert_eq!(bag.remove_up_to(&'x', 10), 0);
+    /// ```
+    #[inline]
+    pub fn remove_up_to<Q: ?Sized>(&mut self, value: &Q, quantity: usize) -> usize
+    where
+        T: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        match self.items.get_mut(value) {
+            None => 0,
+            Some(&mut n) if n <= quantity => {
+                self.count -= n;
+                self.items.remove(value);
+                0
+            }
+            Some(n) => {
+                self.count -= quantity;
+                *n -= quantity;
+                *n
             }
         }
     }
@@ -964,6 +1031,7 @@ where
 // ======== standard traits
 
 use std::fmt;
+use std::marker::PhantomData;
 
 impl<T> fmt::Debug for HashBag<T>
 where
@@ -1065,6 +1133,18 @@ where
     }
 }
 
+impl<T, S> std::iter::FromIterator<(T, usize)> for HashBag<T, S>
+where
+    T: Eq + Hash,
+    S: BuildHasher + Default,
+{
+    fn from_iter<I: IntoIterator<Item = (T, usize)>>(iter: I) -> Self {
+        let mut bag = Self::default();
+        bag.extend(iter);
+        bag
+    }
+}
+
 impl<'a, T, S> IntoIterator for &'a HashBag<T, S> {
     type Item = &'a T;
     type IntoIter = Iter<'a, T>;
@@ -1078,6 +1158,109 @@ impl<T, S> IntoIterator for HashBag<T, S> {
     type IntoIter = IntoIter<T>;
     fn into_iter(self) -> IntoIter<T> {
         IntoIter(self.items.into_iter())
+    }
+}
+
+// ======== entry type
+#[cfg(feature = "amortize")]
+pub(crate) mod entry {
+    use griddle::hash_map::Entry;
+
+    #[derive(Debug)]
+    pub(crate) struct ForiegnEntry<'a, T, S> {
+        pub(crate) entry: Entry<'a, T, usize, S>,
+    }
+
+    impl<'a, T, S> ForiegnEntry<'a, T, S> {
+        pub(crate) fn new(entry: Entry<'a, T, usize, S>) -> Self {
+            Self { entry }
+        }
+
+        pub(crate) fn get_mut(&mut self) -> Option<&mut usize> {
+            match &mut self.entry {
+                Entry::Occupied(entry) => Some(entry.get_mut()),
+                Entry::Vacant(_) => None,
+            }
+        }
+    }
+}
+#[cfg(not(feature = "amortize"))]
+pub(crate) mod entry {
+    use std::{collections::hash_map::Entry, marker::PhantomData};
+
+    #[derive(Debug)]
+    pub(crate) struct ForiegnEntry<'a, T, S> {
+        pub(crate) entry: Entry<'a, T, usize>,
+        data: PhantomData<S>,
+    }
+
+    impl<'a, T, S> ForiegnEntry<'a, T, S> {
+        pub(crate) fn new(entry: Entry<'a, T, usize>) -> Self {
+            Self {
+                entry,
+                data: PhantomData,
+            }
+        }
+
+        pub(crate) fn get_mut(&mut self) -> Option<&mut usize> {
+            match &mut self.entry {
+                Entry::Occupied(entry) => Some(entry.get_mut()),
+                Entry::Vacant(_) => None,
+            }
+        }
+    }
+}
+
+use entry::ForiegnEntry;
+
+type EntryInner<'a, T, S> = (ForiegnEntry<'a, T, S>, &'a mut usize, PhantomData<S>);
+
+#[derive(Debug)]
+/// A view into a single entry in the bag, which may either be vacant or occupied.
+/// This `enum` is constructed from the ['entry`] method on [`HashBag`]
+pub struct Entry<'a, T, S>(EntryInner<'a, T, S>);
+
+impl<'a, T, S> Entry<'a, T, S>
+where
+    T: Hash + Eq,
+    S: BuildHasher,
+{
+    /// Provides in-place mutable access to an occupied entry before potential inserts into the
+    /// map.
+    pub fn and_modify<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(&mut usize),
+    {
+        if let Some(n) = self.0 .0.get_mut() {
+            let init = *n;
+            f(n);
+            *self.0 .1 += *n;
+            *self.0 .1 -= init;
+        }
+        Self((self.0 .0, self.0 .1, PhantomData))
+    }
+
+    /// Returns a reference to the entry's value.
+    pub fn value(&self) -> &T {
+        self.0 .0.entry.key()
+    }
+
+    /// Ensures there is at least one instance of the value before returning a mutable reference
+    /// to the value's count
+    pub fn or_insert(mut self) -> usize {
+        if self.0 .0.get_mut().is_none() {
+            *self.0 .1 += 1;
+        }
+        *self.0 .0.entry.or_insert(1)
+    }
+
+    /// Ensures there is at least `quantity` instances of the value before returning a mutable reference
+    /// to the value's count
+    pub fn or_insert_many(mut self, quantity: usize) -> usize {
+        if self.0 .0.get_mut().is_none() {
+            *self.0 .1 += quantity;
+        }
+        *self.0 .0.entry.or_insert(quantity)
     }
 }
 
@@ -1546,5 +1729,47 @@ mod tests {
         assert_eq!(hashbag.iter().count(), 0);
         assert_eq!(hashbag.set_len(), 0);
         assert_eq!(hashbag.set_iter().count(), 0);
+    }
+
+    #[test]
+    fn remove_up_to_affects_count() {
+        let mut bag = HashBag::new();
+        bag.insert_many(42, 3);
+        assert_eq!(bag.len(), 3);
+        assert_eq!(bag.remove_up_to(&0, 1), 0);
+        assert_eq!(bag.len(), 3);
+        assert_eq!(bag.remove_up_to(&42, 1), 2);
+        assert_eq!(bag.len(), 2);
+        assert_eq!(bag.remove_up_to(&42, 10), 0);
+        assert_eq!(bag.len(), 0);
+    }
+
+    #[test]
+    fn entry_inserts_values() {
+        let mut bag = HashBag::new();
+        bag.entry(42);
+        assert_eq!(bag.contains(&42), 0);
+        bag.entry(84).or_insert_many(3);
+        assert_eq!(bag.contains(&84), 3);
+        assert_eq!(bag.len(), 3);
+        bag.entry(84).or_insert_many(2);
+        assert_eq!(bag.len(), 3);
+        bag.entry(84).or_insert();
+        assert_eq!(bag.len(), 3);
+    }
+
+    #[test]
+    fn entry_affects_count() {
+        let mut bag = HashBag::new();
+        bag.entry(42);
+        assert_eq!(bag.len(), 0);
+        bag.entry(42).and_modify(|n| *n += 3);
+        assert_eq!(bag.len(), 0);
+        bag.entry(42).or_insert_many(3);
+        assert_eq!(bag.len(), 3);
+        bag.entry(42).and_modify(|n| *n += 3);
+        assert_eq!(bag.len(), 6);
+        bag.entry(84).or_insert();
+        assert_eq!(bag.len(), 7);
     }
 }
