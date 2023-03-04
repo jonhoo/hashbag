@@ -1217,7 +1217,7 @@ type EntryInner<'a, T, S> = (ForiegnEntry<'a, T, S>, &'a mut usize, PhantomData<
 
 #[derive(Debug)]
 /// A view into a single entry in the bag, which may either be vacant or occupied.
-/// This `enum` is constructed from the ['entry`] method on [`HashBag`]
+/// This `enum` is constructed from the [`entry`](HashBag::entry) method on [`HashBag`]
 pub struct Entry<'a, T, S>(EntryInner<'a, T, S>);
 
 impl<'a, T, S> Entry<'a, T, S>
