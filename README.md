@@ -1,6 +1,6 @@
 [![Crates.io](https://img.shields.io/crates/v/hashbag.svg)](https://crates.io/crates/hashbag)
 [![Documentation](https://docs.rs/hashbag/badge.svg)](https://docs.rs/hashbag/)
-[![Codecov](https://codecov.io/github/jonhoo/hashbag/coverage.svg?branch=main)](https://codecov.io/gh/jonhoo/hashbag)
+[![codecov](https://codecov.io/gh/jonhoo/hashbag/graph/badge.svg?token=ld3GTa1Fqq)](https://codecov.io/gh/jonhoo/hashbag)
 [![Dependency status](https://deps.rs/repo/github/jonhoo/hashbag/status.svg)](https://deps.rs/repo/github/jonhoo/hashbag)
 
 An unordered multiset/bag implementation backed by `HashMap`.
