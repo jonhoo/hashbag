@@ -71,7 +71,7 @@ where
     where
         S: Serializer,
     {
-        let mut bag = serializer.serialize_seq(Some(self.len()))?;
+        let mut bag = serializer.serialize_seq(Some(self.set_len()))?;
 
         for (entry, count) in self.set_iter() {
             bag.serialize_element(&(entry, count))?;
@@ -177,5 +177,26 @@ mod tests {
         assert_eq!(reconstituted_vikings.get(&einar), Some((&einar, 1)));
         assert_eq!(reconstituted_vikings.get(&olaf), Some((&olaf, 2)));
         assert_eq!(reconstituted_vikings.get(&harald), Some((&harald, 3)));
+    }
+
+    #[test]
+    fn serde_bincode() {
+        let vikings: HashBag<String> = ["Einar", "Olaf", "Olaf", "Harald", "Harald", "Harald"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let einar = "Einar".to_string();
+        let olaf = "Olaf".to_string();
+        let harald = "Harald".to_string();
+        assert_eq!(vikings.get(&einar), Some((&einar, 1)));
+        assert_eq!(vikings.get(&olaf), Some((&olaf, 2)));
+        assert_eq!(vikings.get(&harald), Some((&harald, 3)));
+        println!("Constructed: {:?}", vikings);
+        let bincoded_vikings =
+            bincode::serialize(&vikings).expect("Unable to serialize to bincode!");
+        let reconstituted_vikings: HashBag<String> =
+            bincode::deserialize(&bincoded_vikings).expect("Unable to deserialize bincode!");
+        println!("From bincode: {:?}", reconstituted_vikings);
+        assert_eq!(vikings, reconstituted_vikings);
     }
 }
