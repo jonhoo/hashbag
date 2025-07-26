@@ -192,10 +192,12 @@ mod tests {
         assert_eq!(vikings.get(&olaf), Some((&olaf, 2)));
         assert_eq!(vikings.get(&harald), Some((&harald, 3)));
         println!("Constructed: {:?}", vikings);
-        let bincoded_vikings =
-            bincode::serialize(&vikings).expect("Unable to serialize to bincode!");
+        let bincoded_vikings = bincode::serde::encode_to_vec(&vikings, bincode::config::standard())
+            .expect("Unable to serialize to bincode!");
         let reconstituted_vikings: HashBag<String> =
-            bincode::deserialize(&bincoded_vikings).expect("Unable to deserialize bincode!");
+            bincode::serde::decode_from_slice(&bincoded_vikings, bincode::config::standard())
+                .expect("Unable to deserialize bincode!")
+                .0;
         println!("From bincode: {:?}", reconstituted_vikings);
         assert_eq!(vikings, reconstituted_vikings);
     }
