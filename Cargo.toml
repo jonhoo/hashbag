@@ -13,7 +13,7 @@ keywords = ["bag","multiset","set"]
 categories = ["data-structures"]
 
 [dependencies]
-griddle = { version = "0.5", optional = true }
+griddle = { version = "0.6", optional = true }
 serde = { version = "1.0", optional = true }
 
 [dev-dependencies]
