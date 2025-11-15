@@ -544,10 +544,10 @@ where
     /// assert_eq!(bag.contains(&4), 0);
     /// ```
     #[inline]
-    pub fn contains<Q: ?Sized>(&self, value: &Q) -> usize
+    pub fn contains<Q>(&self, value: &Q) -> usize
     where
         T: Borrow<Q>,
-        Q: Hash + Eq,
+        Q: ?Sized + Hash + Eq,
     {
         self.items.get(value).cloned().unwrap_or(0)
     }
@@ -570,10 +570,10 @@ where
     /// assert_eq!(bag.get(&4), None);
     /// ```
     #[inline]
-    pub fn get<Q: ?Sized>(&self, value: &Q) -> Option<(&T, usize)>
+    pub fn get<Q>(&self, value: &Q) -> Option<(&T, usize)>
     where
         T: Borrow<Q>,
-        Q: Hash + Eq,
+        Q: ?Sized + Hash + Eq,
     {
         self.items
             .get_key_value(value)
@@ -708,10 +708,10 @@ where
     /// assert_eq!(bag.remove(&'x'), 0);
     /// ```
     #[inline]
-    pub fn remove<Q: ?Sized>(&mut self, value: &Q) -> usize
+    pub fn remove<Q>(&mut self, value: &Q) -> usize
     where
         T: Borrow<Q>,
-        Q: Hash + Eq,
+        Q: ?Sized + Hash + Eq,
     {
         match self.items.get_mut(value) {
             None => 0,
@@ -753,10 +753,10 @@ where
     /// assert_eq!(bag.remove_up_to(&'x', 10), 0);
     /// ```
     #[inline]
-    pub fn remove_up_to<Q: ?Sized>(&mut self, value: &Q, quantity: usize) -> usize
+    pub fn remove_up_to<Q>(&mut self, value: &Q, quantity: usize) -> usize
     where
         T: Borrow<Q>,
-        Q: Hash + Eq,
+        Q: ?Sized + Hash + Eq,
     {
         match self.items.get_mut(value) {
             None => 0,
@@ -874,11 +874,11 @@ where
     {
         self.outer_join(other).map(|(x, self_count, other_count)| {
             let diff = if self_count >= other_count {
-                isize::try_from(self_count - other_count).unwrap_or(std::isize::MAX)
+                isize::try_from(self_count - other_count).unwrap_or(isize::MAX)
             } else {
                 isize::try_from(other_count - self_count)
                     .map(|x| -x)
-                    .unwrap_or(std::isize::MIN)
+                    .unwrap_or(isize::MIN)
             };
             (x, diff)
         })
@@ -937,10 +937,10 @@ where
     /// assert_eq!(bag.try_take(&4), Err(None));
     /// ```
     #[inline]
-    pub fn try_take<Q: ?Sized>(&mut self, value: &Q) -> Result<T, Option<(&T, usize)>>
+    pub fn try_take<Q>(&mut self, value: &Q) -> Result<T, Option<(&T, usize)>>
     where
         T: Borrow<Q>,
-        Q: Hash + Eq,
+        Q: ?Sized + Hash + Eq,
     {
         // TODO: it should be possible to make this more efficient
         match self.items.remove_entry(value) {
@@ -980,10 +980,10 @@ where
     /// assert_eq!(bag.take_all(&3), None);
     /// ```
     #[inline]
-    pub fn take_all<Q: ?Sized>(&mut self, value: &Q) -> Option<(T, usize)>
+    pub fn take_all<Q>(&mut self, value: &Q) -> Option<(T, usize)>
     where
         T: Borrow<Q>,
-        Q: Hash + Eq,
+        Q: ?Sized + Hash + Eq,
     {
         let (t, n) = self.items.remove_entry(value)?;
         self.count -= n;
